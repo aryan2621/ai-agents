@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Agent — Private local AI for GitHub</title>
+  <meta name="description" content="Your GitHub assistant. Repos, issues, pull requests, and notifications — powered by local Ollama." />
+  <style>
+    :root { color-scheme: light dark; font-family: system-ui, -apple-system, sans-serif; }
+    body { margin: 0; background: #0b0f14; color: #e8edf3; line-height: 1.6; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 3rem 1.5rem 4rem; }
+    h1 { font-size: 2.4rem; margin: 0 0 0.5rem; }
+    .tagline { color: #9aa8b8; font-size: 1.15rem; margin-bottom: 2rem; }
+    .hero { display: flex; gap: 2rem; align-items: center; margin-bottom: 3rem; }
+    .hero img { width: 96px; height: 96px; border-radius: 22px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; }
+    .card { background: #121923; border: 1px solid #243041; border-radius: 14px; padding: 1.25rem; }
+    .card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+    .card p { margin: 0; color: #9aa8b8; font-size: 0.95rem; }
+    .cta { display: inline-block; margin-top: 2rem; background: #3b82f6; color: white; text-decoration: none; padding: 0.85rem 1.4rem; border-radius: 10px; font-weight: 600; }
+    .cta:hover { background: #2563eb; }
+    footer { margin-top: 3rem; color: #6b7c90; font-size: 0.9rem; }
+    code { background: #1a2430; padding: 0.1rem 0.35rem; border-radius: 4px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <img src="../public/app-icon.png" alt="GitHub Agent" onerror="this.style.display='none'" />
+      <div>
+        <h1>GitHub Agent</h1>
+        <p class="tagline">Your private, local AI for GitHub — repos, issues, pull requests, and notifications.</p>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3>Local models, local data</h3>
+        <p>Ollama runs GitHub tools on this machine. Chat history and GitHub tokens stay on your device.</p>
+      </div>
+      <div class="card">
+        <h3>One GitHub agent</h3>
+        <p>Repos, issues, pull requests, code, and notifications in a single chat — with optional web search.</p>
+      </div>
+      <div class="card">
+        <h3>Zero database setup</h3>
+        <p>Embedded SQLite database — no PostgreSQL required. Download, sign in, and start chatting.</p>
+      </div>
+      <div class="card">
+        <h3>Browser OAuth</h3>
+        <p>Connect with a GitHub OAuth App, then ask the agent to work against your account.</p>
+      </div>
+    </div>
+
+    <footer>
+      <p>Open source under the MIT License. Built with Tauri, Next.js, FastAPI, and Ollama.</p>
+      <p>Global shortcut: <code>Cmd+Shift+H</code> (macOS) / <code>Ctrl+Shift+H</code> (Windows/Linux)</p>
+    </footer>
+  </div>
+</body>
+</html>

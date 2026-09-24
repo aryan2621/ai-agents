@@ -1,0 +1,235 @@
+@import 'highlight.js/styles/github.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --gray-0: 0 0% 100%;
+    --gray-50: 0 0% 98%;
+    --gray-100: 0 0% 96%;
+    --gray-150: 0 0% 93%;
+    --gray-200: 0 0% 90%;
+    --gray-300: 0 0% 83%;
+    --gray-400: 0 0% 64%;
+    --gray-500: 0 0% 45%;
+    --gray-600: 0 0% 32%;
+    --gray-700: 0 0% 25%;
+    --gray-800: 0 0% 15%;
+    --gray-900: 0 0% 9%;
+    --gray-1000: 0 0% 4%;
+
+    --background: var(--gray-0);
+    --foreground: var(--gray-1000);
+    --card: var(--gray-100);
+    --card-foreground: var(--gray-1000);
+    --popover: var(--gray-0);
+    --popover-foreground: var(--gray-1000);
+    --primary: var(--gray-1000);
+    --primary-foreground: var(--gray-0);
+    --secondary: var(--gray-100);
+    --secondary-foreground: var(--gray-1000);
+    --muted: var(--gray-100);
+    --muted-foreground: var(--gray-500);
+    --accent: var(--gray-150);
+    --accent-foreground: var(--gray-1000);
+    --destructive: 0 84% 60%;
+    --destructive-foreground: var(--gray-0);
+    --border: var(--gray-200);
+    --input: var(--gray-200);
+    --ring: var(--gray-400);
+    --radius: 0.5rem;
+    --chat-input-radius: 26px;
+    --transition-fast: 150ms ease;
+    --app-height: 100dvh;
+    --app-text-caption: 0.75rem;
+    --app-text-body: 1rem;
+    --app-text-heading: 1.5rem;
+    --app-text-display: 2.25rem;
+  }
+
+  html[data-font-size='sm'] {
+    --app-text-caption: 0.6875rem;
+    --app-text-body: 0.875rem;
+    --app-text-heading: 1.125rem;
+    --app-text-display: 1.75rem;
+  }
+
+  html[data-font-size='lg'] {
+    --app-text-caption: 0.875rem;
+    --app-text-body: 1.125rem;
+    --app-text-heading: 1.75rem;
+    --app-text-display: 2.75rem;
+  }
+
+  .dark {
+    --background: var(--gray-900);
+    --foreground: var(--gray-0);
+    --card: var(--gray-800);
+    --card-foreground: var(--gray-0);
+    --popover: var(--gray-800);
+    --popover-foreground: var(--gray-0);
+    --primary: var(--gray-0);
+    --primary-foreground: var(--gray-1000);
+    --secondary: var(--gray-800);
+    --secondary-foreground: var(--gray-0);
+    --muted: var(--gray-800);
+    --muted-foreground: var(--gray-400);
+    --accent: var(--gray-700);
+    --accent-foreground: var(--gray-0);
+    --destructive: 0 84% 60%;
+    --destructive-foreground: var(--gray-0);
+    --border: var(--gray-700);
+    --input: var(--gray-700);
+    --ring: var(--gray-500);
+  }
+}
+
+@layer base {
+  html {
+    height: 100dvh;
+    height: var(--app-height);
+    overflow: hidden;
+  }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased font-sans font-normal text-app-body;
+    height: 100dvh;
+    height: var(--app-height);
+    min-height: 0;
+    overflow: hidden;
+  }
+  html.platform-macos .mac-drag-region {
+    height: 28px;
+    -webkit-app-region: drag;
+    app-region: drag;
+  }
+  html.platform-macos a,
+  html.platform-macos button,
+  html.platform-macos [role='button'],
+  html.platform-macos input,
+  html.platform-macos textarea,
+  html.platform-macos select {
+    -webkit-app-region: no-drag;
+    app-region: no-drag;
+  }
+  html:not(.platform-macos) .mac-drag-region {
+    display: none;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-rounded font-medium tracking-normal;
+  }
+  code,
+  pre,
+  kbd,
+  samp {
+    @apply font-mono;
+  }
+  svg.lucide {
+    stroke-width: 1.5;
+  }
+}
+
+@layer utilities {
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.dark .hljs {
+  background: hsl(var(--gray-800)) !important;
+  color: hsl(var(--gray-0)) !important;
+}
+
+.dark .hljs-comment,
+.dark .hljs-quote {
+  color: hsl(var(--gray-400)) !important;
+}
+
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-addition {
+  color: #79c0ff !important;
+}
+
+.dark .hljs-string,
+.dark .hljs-meta .hljs-string {
+  color: #a5d6ff !important;
+}
+
+.dark .hljs-number,
+.dark .hljs-literal {
+  color: #79c0ff !important;
+}
+
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-name {
+  color: #d2a8ff !important;
+}
+
+.dark .hljs-attr,
+.dark .hljs-attribute {
+  color: #7ee787 !important;
+}
+
+.prose pre code.hljs {
+  color: hsl(var(--foreground));
+  background: transparent;
+}
+
+.prose pre:not(:has(.hljs)) code {
+  color: hsl(var(--foreground));
+}
+
+.message-loader-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 9999px;
+  background-color: hsl(var(--muted-foreground));
+  animation: message-loader-bounce 1.2s ease-in-out infinite;
+}
+
+.animation-delay-150 {
+  animation-delay: 0.15s;
+}
+
+.animation-delay-300 {
+  animation-delay: 0.3s;
+}
+
+@keyframes message-loader-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.45;
+  }
+  40% {
+    transform: translateY(-0.35rem);
+    opacity: 1;
+  }
+}
+
+@keyframes recording-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--destructive) / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 6px hsl(var(--destructive) / 0);
+  }
+}
+
+.animate-recording-pulse {
+  animation: recording-pulse 1.4s ease-in-out infinite;
+}

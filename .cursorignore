@@ -1,0 +1,54 @@
+# Secrets (never send to AI)
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.*.example
+**/credentials.json
+**/client_secret*.json
+**/secrets.json
+**/token.json
+**/*.pem
+**/*.key
+**/id_rsa
+**/id_rsa.pub
+
+# Dependencies
+**/node_modules/
+**/.venv/
+**/venv/
+
+# Frontend build output
+**/.next/
+**/out/
+**/dist/
+**/dist-ssr/
+**/.cache/
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.mypy_cache/
+**/*.egg-info/
+
+# Local data
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+**/backend/data/
+
+# Tauri / Rust / sidecars
+**/src-tauri/target/
+**/src-tauri/gen/
+**/src-tauri/binaries/
+**/backend/build/
+**/backend/dist/
+
+# Other projects in this folder
+mcp-connect/
+mcp-moniter/
+
+# Logs and OS
+**/*.log
+**/logs/
+**/.DS_Store
