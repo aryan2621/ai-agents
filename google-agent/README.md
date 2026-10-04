@@ -1,5 +1,8 @@
 # Google Agent
 
+> **Just want to use the app?** See the [install guide](../README.md): download, opening an unsigned
+> app, first-run setup and privacy. This page is for building from source.
+
 A desktop AI assistant for Google Workspace (Gmail, Calendar, Drive, Docs, Sheets). Built with Tauri, Next.js, FastAPI and a built-in llama.cpp model. Chats are saved as local JSON files.
 
 **Tagline:** Your private, local AI for Google Workspace — Gmail, Calendar, Drive, Docs, and Sheets.
