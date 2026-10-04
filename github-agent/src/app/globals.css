@@ -20,25 +20,32 @@
     --gray-900: 0 0% 9%;
     --gray-1000: 0 0% 4%;
 
-    --background: var(--gray-0);
-    --foreground: var(--gray-1000);
-    --card: var(--gray-100);
-    --card-foreground: var(--gray-1000);
-    --popover: var(--gray-0);
-    --popover-foreground: var(--gray-1000);
-    --primary: var(--gray-1000);
-    --primary-foreground: var(--gray-0);
-    --secondary: var(--gray-100);
-    --secondary-foreground: var(--gray-1000);
-    --muted: var(--gray-100);
-    --muted-foreground: var(--gray-500);
-    --accent: var(--gray-150);
-    --accent-foreground: var(--gray-1000);
-    --destructive: 0 84% 60%;
-    --destructive-foreground: var(--gray-0);
-    --border: var(--gray-200);
-    --input: var(--gray-200);
-    --ring: var(--gray-400);
+    /* Claude's palette: warm paper tones and a clay accent. */
+    --background: 48 33% 97%;
+    --sidebar: 53 29% 94%;
+    --foreground: 30 3% 12%;
+    --card: 48 25% 92%;
+    --card-foreground: 30 3% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 30 3% 12%;
+    /* Claude: ordinary primary buttons are near-black; clay is kept for brand moments. */
+    --primary: 30 3% 12%;
+    --primary-foreground: 48 33% 97%;
+    --brand: 15 56% 52%;
+    --brand-foreground: 0 0% 100%;
+    --secondary: 48 25% 92%;
+    --secondary-foreground: 30 3% 12%;
+    --muted: 48 25% 92%;
+    --muted-foreground: 48 4% 48%;
+    --accent: 48 22% 90%;
+    --accent-foreground: 30 3% 12%;
+    --destructive: 0 56% 45%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 139 33% 37%;
+    --warning: 36 71% 39%;
+    --border: 50 21% 87%;
+    --input: 49 16% 81%;
+    --ring: 15 56% 52%;
     --radius: 0.5rem;
     --chat-input-radius: 26px;
     --transition-fast: 150ms ease;
@@ -64,25 +71,30 @@
   }
 
   .dark {
-    --background: var(--gray-900);
-    --foreground: var(--gray-0);
-    --card: var(--gray-800);
-    --card-foreground: var(--gray-0);
-    --popover: var(--gray-800);
-    --popover-foreground: var(--gray-0);
-    --primary: var(--gray-0);
-    --primary-foreground: var(--gray-1000);
-    --secondary: var(--gray-800);
-    --secondary-foreground: var(--gray-0);
-    --muted: var(--gray-800);
-    --muted-foreground: var(--gray-400);
-    --accent: var(--gray-700);
-    --accent-foreground: var(--gray-0);
-    --destructive: 0 84% 60%;
-    --destructive-foreground: var(--gray-0);
-    --border: var(--gray-700);
-    --input: var(--gray-700);
-    --ring: var(--gray-500);
+    --background: 60 3% 15%;
+    --sidebar: 30 3% 12%;
+    --foreground: 50 23% 95%;
+    --card: 60 2% 18%;
+    --card-foreground: 50 23% 95%;
+    --popover: 60 2% 18%;
+    --popover-foreground: 50 23% 95%;
+    --primary: 50 23% 95%;
+    --primary-foreground: 30 3% 12%;
+    --brand: 15 63% 60%;
+    --brand-foreground: 0 0% 100%;
+    --secondary: 60 2% 18%;
+    --secondary-foreground: 50 23% 95%;
+    --muted: 60 2% 18%;
+    --muted-foreground: 48 5% 60%;
+    --accent: 45 4% 22%;
+    --accent-foreground: 50 23% 95%;
+    --destructive: 6 74% 71%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 115 31% 65%;
+    --warning: 35 68% 62%;
+    --border: 48 4% 24%;
+    --input: 50 4% 29%;
+    --ring: 15 63% 60%;
   }
 }
 
@@ -95,6 +107,14 @@
   * {
     @apply border-border;
   }
+  ::selection {
+    background: hsl(var(--brand) / 0.25);
+  }
+  /* Thin, quiet scrollbars, as in Claude. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+  }
   body {
     @apply bg-background text-foreground antialiased font-sans font-normal text-app-body;
     height: 100dvh;
@@ -102,10 +122,19 @@
     min-height: 0;
     overflow: hidden;
   }
+  /* An overlay, so the window's top edge stays draggable without pushing the layout down:
+     the sidebar runs to the top of the window under the traffic lights, as in Relay. */
   html.platform-macos .mac-drag-region {
+    position: fixed;
+    inset: 0 0 auto 0;
     height: 28px;
+    z-index: 40;
     -webkit-app-region: drag;
     app-region: drag;
+  }
+  /* Room for the traffic lights at the top of the sidebar. */
+  html.platform-macos .mac-window-space {
+    height: 28px;
   }
   html.platform-macos a,
   html.platform-macos button,
@@ -116,13 +145,16 @@
     -webkit-app-region: no-drag;
     app-region: no-drag;
   }
-  html:not(.platform-macos) .mac-drag-region {
+  html:not(.platform-macos) .mac-drag-region,
+  html:not(.platform-macos) .mac-window-space {
     display: none;
   }
+  /* Claude sets interface headings (dialogs, settings) in sans; serif is applied where it
+     belongs: page titles, the greeting and replies (font-serif / font-rounded). */
   h1,
   h2,
   h3 {
-    @apply font-rounded font-medium tracking-normal;
+    @apply font-medium tracking-normal;
   }
   code,
   pre,
@@ -146,13 +178,13 @@
 }
 
 .dark .hljs {
-  background: hsl(var(--gray-800)) !important;
-  color: hsl(var(--gray-0)) !important;
+  background: hsl(var(--card)) !important;
+  color: hsl(var(--foreground)) !important;
 }
 
 .dark .hljs-comment,
 .dark .hljs-quote {
-  color: hsl(var(--gray-400)) !important;
+  color: hsl(var(--muted-foreground)) !important;
 }
 
 .dark .hljs-keyword,
@@ -180,6 +212,29 @@
 .dark .hljs-attr,
 .dark .hljs-attribute {
   color: #7ee787 !important;
+}
+
+/* Keep Markdown replies on the theme's warm tones instead of Tailwind's neutral grays. */
+.prose {
+  --tw-prose-body: hsl(var(--foreground));
+  --tw-prose-headings: hsl(var(--foreground));
+  --tw-prose-bold: hsl(var(--foreground));
+  --tw-prose-links: hsl(var(--brand));
+  --tw-prose-bullets: hsl(var(--muted-foreground));
+  --tw-prose-counters: hsl(var(--muted-foreground));
+  --tw-prose-quotes: hsl(var(--foreground));
+  --tw-prose-quote-borders: hsl(var(--border));
+  --tw-prose-hr: hsl(var(--border));
+  --tw-prose-code: hsl(var(--foreground));
+  --tw-prose-th-borders: hsl(var(--border));
+  --tw-prose-td-borders: hsl(var(--border));
+}
+.prose :where(code):not(:where(pre *)) {
+  @apply font-mono rounded bg-card px-1 py-0.5 font-normal;
+}
+.prose :where(code):not(:where(pre *))::before,
+.prose :where(code):not(:where(pre *))::after {
+  content: none;
 }
 
 .prose pre code.hljs {

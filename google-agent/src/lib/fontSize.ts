@@ -1,6 +1,6 @@
 import type { Settings } from '@/types'
 
-export type FontSize = Settings['fontSize']
+type FontSize = Settings['fontSize']
 
 export function applyFontSize(size: FontSize) {
   if (typeof document === 'undefined') return

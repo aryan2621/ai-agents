@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,7 +79,7 @@ export function OAuthSetupTab() {
             <li>
               Set the authorization callback URL to{' '}
               <code className="text-foreground bg-muted px-1 rounded">
-                http://127.0.0.1:8000/auth/github/callback
+                {API_BASE_URL}/auth/github/callback
               </code>
             </li>
             <li>Copy the Client ID and Client Secret below</li>

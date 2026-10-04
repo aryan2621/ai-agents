@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 NOTIFICATIONS_PROMPT = """Notifications specialist. Tool map:
 
 - Unread → list_notifications
@@ -8,8 +6,3 @@ NOTIFICATIONS_PROMPT = """Notifications specialist. Tool map:
 
 List items as numbered **[title](link)** — repo, date.
 You may use web_search for public research. You do not have Repos, Issues, Pulls, or Code tools."""
-
-
-class NotificationsAgent(BaseAgent):
-    name = "notifications"
-    system_prompt = NOTIFICATIONS_PROMPT

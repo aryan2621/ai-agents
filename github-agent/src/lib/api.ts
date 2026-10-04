@@ -5,11 +5,12 @@ import type {
   Conversation,
   GitHubUser,
   HealthStatus,
+  ModelCatalog,
   ReadinessIssue,
   Settings,
 } from '@/types'
 
-/** Preflight runs LLM routing; local Ollama inference can exceed ky's 10s default. */
+/** Local inference (and loading the model on first use) can exceed ky's 10s default. */
 const LLM_API_TIMEOUT_MS = 60_000
 
 const api: KyInstance = ky.create({
@@ -49,8 +50,6 @@ export async function fetchHealth(): Promise<HealthStatus> {
     checks,
     oauthConfigured: Boolean(data.oauth_configured ?? data.oauthConfigured),
     llmConfigured: Boolean(data.llm_configured ?? data.llmConfigured),
-    ollamaConfigured: Boolean(data.ollama_configured ?? data.ollamaConfigured),
-    ollamaBaseUrl: String(data.ollama_base_url ?? data.ollamaBaseUrl ?? ''),
   }
 }
 
@@ -59,8 +58,8 @@ function buildIssuesFromChecks(checks: Record<string, string>): ReadinessIssue[]
   if (checks.database === 'error') {
     issues.push({
       code: 'database',
-      message: 'Database is not available.',
-      remediation: 'Restart the app. SQLite is used by default; set DATABASE_URL for PostgreSQL.',
+      message: "Chats and settings can't be saved.",
+      remediation: 'Restart the app. If it keeps happening, check disk space and permissions.',
     })
   }
   if (checks.network === 'error') {
@@ -73,75 +72,11 @@ function buildIssuesFromChecks(checks: Record<string, string>): ReadinessIssue[]
   if (checks.llm === 'error') {
     issues.push({
       code: 'llm',
-      message: 'Ollama is not running.',
-      remediation: 'Start Ollama and pull a model (ollama pull ministral-3:8b).',
+      message: 'No AI model is downloaded yet.',
+      remediation: 'Download a model in Settings → Models (it runs on this Mac).',
     })
   }
   return issues
-}
-
-export async function chatPreflightApi(
-  message: string,
-  agentFilter?: string,
-  settings?: Settings,
-  conversationId?: string
-): Promise<{
-  agent: string
-  label: string
-  agents?: string[]
-  oauthGranted: boolean
-  scope?: string
-  webSearchConfigured: boolean
-}> {
-  const body: Record<string, unknown> = { message, agent_filter: agentFilter }
-  if (conversationId) {
-    body.conversation_id = conversationId
-  }
-  if (settings) {
-    body.settings = {
-      default_model: settings.defaultModel,
-      temperature: settings.temperature,
-      max_tokens: settings.maxTokens,
-      agent_overrides: settings.agentOverrides,
-    }
-  }
-  try {
-    const data = await api
-      .post('chat/preflight', { json: body, timeout: 15_000 })
-      .json<{
-      agent: string
-      label: string
-      agents?: string[]
-      oauth_granted: boolean
-      scope?: string
-      web_search_configured?: boolean
-    }>()
-    return {
-      agent: data.agent,
-      label: data.label,
-      agents: data.agents,
-      oauthGranted: data.oauth_granted,
-      scope: data.scope,
-      webSearchConfigured: data.web_search_configured ?? true,
-    }
-  } catch (err) {
-    const kyErr = err as { response?: Response; message?: string }
-    if (kyErr.response) {
-      let detail = ''
-      try {
-        const payload = (await kyErr.response.json()) as { detail?: unknown }
-        detail = typeof payload.detail === 'string' ? payload.detail : ''
-      } catch {
-        detail = ''
-      }
-      throw new Error(detail || `Backend error: ${kyErr.response.status}`)
-    }
-    throw new Error(
-      kyErr.message === 'Load failed' || kyErr.message === 'Failed to fetch'
-        ? 'Could not reach the backend. Check the Python server terminal for errors, then try again.'
-        : kyErr.message || 'Failed to prepare action'
-    )
-  }
 }
 
 /** Poll until the Python backend responds on /health (sidecar may still be starting). */
@@ -305,26 +240,33 @@ export async function saveOAuthCredentials(clientId: string, clientSecret: strin
 
 export async function fetchLlmSetupStatus(): Promise<{
   configured: boolean
-  ollamaConfigured: boolean
-  ollamaBaseUrl: string
+  recommended: string
+  installed: string[]
 }> {
   return ky.get(`${API_BASE_URL}/setup/llm/status`, { timeout: 5000 }).json()
 }
 
-export async function saveLlmCredentials(
-  ollamaBaseUrl = '',
-  defaultModel = ''
-): Promise<void> {
-  await ky.post(`${API_BASE_URL}/setup/llm`, {
-    json: { ollamaBaseUrl, defaultModel },
-    timeout: 10_000,
-  })
+/** Built-in AI models (llama.cpp). Local-only endpoints; no sign-in needed. */
+export async function fetchModels(): Promise<ModelCatalog> {
+  return ky.get(`${API_BASE_URL}/models`, { timeout: 5000 }).json()
+}
+
+export async function downloadModel(id: string): Promise<ModelCatalog> {
+  return ky.post(`${API_BASE_URL}/models/${id}/download`, { timeout: 10_000 }).json()
+}
+
+export async function cancelModelDownload(): Promise<ModelCatalog> {
+  return ky.post(`${API_BASE_URL}/models/download/cancel`, { timeout: 10_000 }).json()
+}
+
+export async function deleteModel(id: string): Promise<ModelCatalog> {
+  return ky.delete(`${API_BASE_URL}/models/${id}`, { timeout: 10_000 }).json()
 }
 
 function parseSettings(raw: Record<string, unknown>): Settings {
   const agentOverrides = (raw.agentOverrides ?? raw.agent_overrides ?? {}) as Settings['agentOverrides']
   return {
-    defaultModel: String(raw.defaultModel ?? raw.default_model ?? 'ministral-3:8b'),
+    defaultModel: String(raw.defaultModel ?? raw.default_model ?? ''),
     temperature: Number(raw.temperature ?? 0.7),
     maxTokens: Number(raw.maxTokens ?? raw.max_tokens ?? 2048),
     sendOnEnter: Boolean(raw.sendOnEnter ?? raw.send_on_enter ?? true),
@@ -335,7 +277,6 @@ function parseSettings(raw: Record<string, unknown>): Settings {
     tavilySearchApiKey: String(
       raw.tavilySearchApiKey ?? raw.tavily_search_api_key ?? raw.braveSearchApiKey ?? raw.brave_search_api_key ?? ''
     ),
-    ollamaBaseUrl: String(raw.ollamaBaseUrl ?? raw.ollama_base_url ?? 'http://127.0.0.1:11434'),
     agentOverrides,
   }
 }

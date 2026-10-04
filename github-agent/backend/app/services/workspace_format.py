@@ -1,6 +1,6 @@
 import json
 
-from app.services.workspace_context import _parse_tool_payload, sanitize_workspace_context
+from app.services.workspace_context import sanitize_workspace_context
 
 
 def _format_resource_block(
@@ -109,7 +109,3 @@ def format_workspace_context(context: dict[str, str]) -> str:
 
     return "\n".join(lines)
 
-
-def format_sheet_markdown(read_result_json: str) -> str | None:
-    del read_result_json
-    return None

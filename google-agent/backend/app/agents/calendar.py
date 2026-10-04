@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 CALENDAR_PROMPT = """Calendar specialist. Tool map:
 
 - Upcoming → list_upcoming_events
@@ -11,8 +9,3 @@ CALENDAR_PROMPT = """Calendar specialist. Tool map:
 
 Show times with start_display/end_display. After create/update, include htmlLink.
 You may use web_search for public research. You do not have Gmail, Drive, Docs, or Sheets tools."""
-
-
-class CalendarAgent(BaseAgent):
-    name = "calendar"
-    system_prompt = CALENDAR_PROMPT

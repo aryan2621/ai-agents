@@ -1,6 +1,6 @@
 # GitHub Agent
 
-A desktop AI assistant for GitHub (repos, issues, pull requests, code, and notifications). Built with Tauri, Next.js, FastAPI, local Ollama, and embedded SQLite.
+A desktop AI assistant for GitHub (repos, issues, pull requests, code, and notifications). Built with Tauri, Next.js, FastAPI and a built-in llama.cpp model. Chats are saved as local JSON files.
 
 **Tagline:** Your private, local AI for GitHub — repos, issues, pull requests, and notifications.
 
@@ -8,14 +8,24 @@ A desktop AI assistant for GitHub (repos, issues, pull requests, code, and notif
 
 1. **Node.js 20+** and **Rust** (for Tauri)
 2. **Python 3.11+**
-3. **PostgreSQL** (optional) — embedded **SQLite** is used by default; no database setup required
-4. **Ollama** — install from [ollama.com](https://ollama.com), then pull the default model: `ollama pull ministral-3:8b`
-5. **GitHub OAuth App** — create an OAuth App at [GitHub Developer settings](https://github.com/settings/developers). Set the authorization callback URL to:
+3. **CMake** (to build the bundled llama.cpp server; `brew install cmake`)
+4. **GitHub OAuth App** — create an OAuth App at [GitHub Developer settings](https://github.com/settings/developers). Set the authorization callback URL to:
    ```
-   http://127.0.0.1:8000/auth/github/callback
+   http://127.0.0.1:47831/auth/github/callback
    ```
 
-Do not run GitHub Agent and Google Agent at the same time — both bind port 8000.
+### Ports
+
+| | GitHub Agent | Google Agent |
+|---|---|---|
+| Backend (FastAPI) | 47831, fixed | 47832, fixed |
+| Dev UI (`next dev`) | 47821, `GITHUB_AGENT_UI_PORT` | 47822, `GOOGLE_AGENT_UI_PORT` |
+| llama-server | a free port picked at launch | same |
+
+The two apps never share a port, so both can run at the same time. The backend port is fixed because
+the OAuth redirect URI, the Tauri shell and the window's CSP all name it; it does not read `HOST` or
+`PORT`. In dev, set `GITHUB_AGENT_UI_PORT` to move the UI; `npm run dev` stops with a message if the
+port is taken.
 
 ## Setup
 
@@ -27,8 +37,6 @@ Do not run GitHub Agent and Google Agent at the same time — both bind port 800
    ```
    GITHUB_CLIENT_ID=your-oauth-app-client-id
    GITHUB_CLIENT_SECRET=your-oauth-app-client-secret
-   DEFAULT_MODEL=ministral-3:8b
-   OLLAMA_BASE_URL=http://127.0.0.1:11434
    ```
    Copy it for the bundled backend:
    ```bash
@@ -39,10 +47,8 @@ Do not run GitHub Agent and Google Agent at the same time — both bind port 800
    npm install
    cd backend && pip install -r requirements.txt
    ```
-4. Apply database migrations (first time, or after pulling schema changes):
-   ```bash
-   npm run db:migrate
-   ```
+4. On first launch, download a model in the onboarding step (or Settings → Models). It runs on this Mac;
+   nothing else to install. Chats, settings and models live in `~/Library/Application Support/GitHub Agent/`.
 
 ## Run
 

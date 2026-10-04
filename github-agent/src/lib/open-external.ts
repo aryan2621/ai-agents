@@ -12,7 +12,7 @@ export function sanitizeExternalUrl(url: string): string | null {
   return null
 }
 
-export function isInternalAppUrl(url: string): boolean {
+function isInternalAppUrl(url: string): boolean {
   try {
     const parsed = new URL(url, window.location.href)
     if (parsed.protocol === 'tauri:') return true

@@ -96,67 +96,6 @@ class SheetsMixin:
             spreadsheet_id=spreadsheet_id,
         )
 
-    def trash_all_spreadsheets(self, max_results: int = 100) -> str:
-        result = (
-            self._drive.files()
-            .list(
-                q=f"mimeType='{SHEETS_MIME}' and trashed=false",
-                pageSize=max_results,
-                fields="files(id,name)",
-            )
-            .execute()
-        )
-        trashed_names: list[str] = []
-        for file in result.get("files", []):
-            self._drive.files().update(fileId=file["id"], body={"trashed": True}).execute()
-            trashed_names.append(file.get("name", ""))
-        count = len(trashed_names)
-        return _tool_result(
-            "trashed" if trashed_names else "none_found",
-            f"Moved {count} spreadsheet(s) to trash." if trashed_names else "No spreadsheets to trash.",
-            count=count,
-            trashed_names=trashed_names,
-        )
-
-    def trash_spreadsheets_by_names(self, names: list[str]) -> str:
-        requested = {name.strip().lower() for name in names if name.strip()}
-        if not requested:
-            return _tool_error("No spreadsheet names provided.")
-
-        result = (
-            self._drive.files()
-            .list(
-                q=f"mimeType='{SHEETS_MIME}' and trashed=false",
-                pageSize=100,
-                fields="files(id,name)",
-            )
-            .execute()
-        )
-        trashed_names: list[str] = []
-        remaining = set(requested)
-        for file in result.get("files", []):
-            file_name = file.get("name", "")
-            key = file_name.lower()
-            if key not in remaining:
-                continue
-            self._drive.files().update(fileId=file["id"], body={"trashed": True}).execute()
-            trashed_names.append(file_name)
-            remaining.discard(key)
-
-        count = len(trashed_names)
-        summary = (
-            f"Trashed {count} spreadsheet(s): {', '.join(trashed_names)}."
-            if trashed_names
-            else "No matching spreadsheets were trashed."
-        )
-        return _tool_result(
-            "trashed" if trashed_names else "none_trashed",
-            summary,
-            count=count,
-            trashed_names=trashed_names,
-            not_found=sorted(remaining),
-        )
-
     def create_spreadsheet(self, title: str) -> str:
         created = self._sheets.spreadsheets().create(
             body={"properties": {"title": title}}

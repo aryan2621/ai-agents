@@ -9,7 +9,6 @@ from app.services.google.drive import DriveMixin
 from app.services.google.gmail import GmailMixin
 from app.services.google.sheets import SheetsMixin
 from app.services.google.support import (
-    _credentials,
     _google_service,
     _logged_public_method,
 )
@@ -17,13 +16,28 @@ from app.services.google.support import (
 
 class GoogleClients(GmailMixin, CalendarMixin, DriveMixin, DocsMixin, SheetsMixin):
     def __init__(self, creds: StoredCredentials) -> None:
-        self._creds = _credentials(creds)
-        self._gmail = _google_service("gmail", "v1", self._creds)
-        self._calendar = _google_service("calendar", "v3", self._creds)
-        self._drive = _google_service("drive", "v3", self._creds)
-        self._docs = _google_service("docs", "v1", self._creds)
-        self._sheets = _google_service("sheets", "v4", self._creds)
-        self._calendar_tz: str | None = None
+        self._token = creds.google_access_token
+
+    # Looked up when used: tools run on worker threads, each with its own cached clients.
+    @property
+    def _gmail(self):
+        return _google_service("gmail", "v1", self._token)
+
+    @property
+    def _calendar(self):
+        return _google_service("calendar", "v3", self._token)
+
+    @property
+    def _drive(self):
+        return _google_service("drive", "v3", self._token)
+
+    @property
+    def _docs(self):
+        return _google_service("docs", "v1", self._token)
+
+    @property
+    def _sheets(self):
+        return _google_service("sheets", "v4", self._token)
 
 
 for cls in GoogleClients.__mro__:

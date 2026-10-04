@@ -11,7 +11,7 @@ async function getStore(): Promise<Store> {
   return _store
 }
 
-/** Minimal client-side persistence: access token only for session restore. All other data lives in PostgreSQL. */
+/** Minimal client-side persistence: access token only for session restore. Chats and settings are stored by the backend as files in the app's data folder. */
 export const sessionStore = {
   async getAccessToken(): Promise<string | null> {
     try {

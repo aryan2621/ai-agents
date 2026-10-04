@@ -14,7 +14,7 @@ export function subscribeSpeaking(listener: (messageId: string | null) => void) 
   }
 }
 
-export function stripMarkdownForSpeech(text: string): string {
+function stripMarkdownForSpeech(text: string): string {
   return text
     .replace(/```[\s\S]*?```/g, ' ')
     .replace(/`([^`]+)`/g, '$1')
@@ -30,13 +30,13 @@ export function isSpeechSupported(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window
 }
 
-export function stopSpeaking() {
+function stopSpeaking() {
   if (!isSpeechSupported()) return
   window.speechSynthesis.cancel()
   notify(null)
 }
 
-export function speakMessage(messageId: string, text: string): boolean {
+function speakMessage(messageId: string, text: string): boolean {
   if (!isSpeechSupported()) return false
   const plain = stripMarkdownForSpeech(text)
   if (!plain) return false

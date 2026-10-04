@@ -61,7 +61,7 @@ export function AccountTab() {
               >
                 <span className="text-app-body text-foreground">{permission.label}</span>
                 {permission.granted ? (
-                  <span className="inline-flex items-center gap-1 text-app-caption text-green-600 dark:text-green-500">
+                  <span className="inline-flex items-center gap-1 text-app-caption text-success ">
                     <Check className="h-3.5 w-3.5" />
                     Granted
                   </span>

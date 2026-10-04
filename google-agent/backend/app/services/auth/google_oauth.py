@@ -1,9 +1,9 @@
 import time
 
 import httpx
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import get_settings
+from app.config import BACKEND_HOST, BACKEND_PORT
+from app.db.database import Store
 from app.services.platform.app_config import resolve_google_credentials
 from app.models.auth import GoogleUserResponse
 from app.services.auth.auth_service import (
@@ -22,7 +22,7 @@ GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v2/userinfo"
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 
 # Desktop OAuth clients must use loopback; Google auto-allows http://127.0.0.1 for Desktop type.
-GOOGLE_OAUTH_REDIRECT_URI = "http://127.0.0.1:8000/auth/google/callback"
+GOOGLE_OAUTH_REDIRECT_URI = f"http://{BACKEND_HOST}:{BACKEND_PORT}/auth/google/callback"
 
 OAUTH_SCOPES = (
     "openid",
@@ -52,7 +52,7 @@ def build_google_auth_url(client_id: str, state: str) -> str:
 
 
 async def exchange_code(
-    session: AsyncSession, code: str, redirect_uri: str
+    session: Store, code: str, redirect_uri: str
 ) -> GoogleUserResponse:
     client_id, client_secret = resolve_google_credentials()
     if not client_id or not client_secret:
@@ -123,7 +123,7 @@ async def fetch_profile_picture(google_access_token: str) -> str:
 
 
 async def refresh_access_token(
-    session: AsyncSession, creds: StoredCredentials
+    session: Store, creds: StoredCredentials
 ) -> StoredCredentials:
     if not creds.refresh_token:
         raise ValueError("No refresh token available; please re-authenticate")
@@ -164,7 +164,7 @@ async def refresh_access_token(
 
 
 async def get_valid_credentials(
-    session: AsyncSession, session_token: str
+    session: Store, session_token: str
 ) -> StoredCredentials:
     creds = await get_credentials_by_access_token(session, session_token)
     if creds is None:

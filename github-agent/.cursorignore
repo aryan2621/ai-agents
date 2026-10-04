@@ -22,7 +22,5 @@
 **/src-tauri/binaries/
 **/backend/build/
 **/backend/dist/
-**/backend/data/
-**/*.db
 **/*.log
 **/.DS_Store

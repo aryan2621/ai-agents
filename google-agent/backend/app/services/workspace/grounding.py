@@ -53,9 +53,32 @@ def parse_tool_payloads(tool_messages: list[ToolMessage] | list[Any]) -> list[di
     return payloads
 
 
+_LIST_KEYS = ("messages", "events", "files", "documents", "spreadsheets")
+
+
+def _items_preview(payload: dict[str, Any], max_items: int = 5) -> str:
+    """A numbered list of the result's items. Tool results leave out their own preview when
+    they carry the items, so the model doesn't read everything twice."""
+    for key in _LIST_KEYS:
+        items = [i for i in payload.get(key) or [] if isinstance(i, dict)]
+        if not items:
+            continue
+        lines = []
+        for index, item in enumerate(items[:max_items], start=1):
+            title = item.get("subject") or item.get("summary") or item.get("name") or item.get("title") or "(untitled)"
+            link = item.get("link") or item.get("htmlLink") or item.get("webViewLink") or item.get("spreadsheetUrl")
+            detail = item.get("from") or item.get("start_display") or item.get("date") or item.get("modifiedTime")
+            line = f"{index}. [{title}]({link})" if link else f"{index}. {title}"
+            lines.append(f"{line} — {detail}" if detail else line)
+        if len(items) > max_items:
+            lines.append(f"... +{len(items) - max_items} more")
+        return "\n".join(lines)
+    return ""
+
+
 def _format_tool_payload(payload: dict[str, Any]) -> str:
     summary = str(payload.get("summary") or payload.get("message") or "").strip()
-    preview = str(payload.get("preview") or "").strip()
+    preview = str(payload.get("preview") or "").strip() or _items_preview(payload)
     if preview and preview.lower() != "no items found.":
         if preview in summary:
             return summary

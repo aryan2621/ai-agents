@@ -10,10 +10,6 @@ export function registerSettingsOpenHandler(handler: () => void) {
   settingsOpenHandler = handler
 }
 
-export function openSettingsModal() {
-  settingsOpenHandler?.()
-}
-
 export function useKeyboardShortcuts() {
   const startNewChat = useChatStore((s) => s.startNewChat)
   const openChat = useAppViewStore((s) => s.openChat)

@@ -5,9 +5,9 @@
   "identifier": "com.githubagent.app",
   "build": {
     "frontendDist": "../out",
-    "devUrl": "http://localhost:3000",
-    "beforeDevCommand": "npm run ensure:sidecar && npm run dev:next",
-    "beforeBuildCommand": "npm run build:next && npm run build:sidecar"
+    "devUrl": "http://localhost:47821",
+    "beforeDevCommand": "./scripts/build-llama-server.sh && npm run ensure:sidecar && npm run dev:next",
+    "beforeBuildCommand": "./scripts/build-llama-server.sh && npm run build:next && npm run build:sidecar"
   },
   "app": {
     "windows": [
@@ -28,14 +28,15 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:8000 http://localhost:8000 https://github.com https://api.github.com https://*.github.com; img-src 'self' data: https: https://avatars.githubusercontent.com https://github.com https://*.githubusercontent.com; media-src 'self' blob: mediastream:; font-src 'self' data:"
+      "csp": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:47831 http://localhost:47831 https://github.com https://api.github.com https://*.github.com; img-src 'self' data: https: https://avatars.githubusercontent.com https://github.com https://*.githubusercontent.com; media-src 'self' blob: mediastream:; font-src 'self' data:"
     }
   },
   "bundle": {
     "active": true,
     "targets": "all",
     "macOS": {
-      "infoPlist": "Info.plist"
+      "infoPlist": "Info.plist",
+      "entitlements": "Entitlements.plist"
     },
     "icon": [
       "icons/32x32.png",
@@ -43,7 +44,10 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/python-backend"]
+    "resources": {
+      "binaries/python-backend/": "python-backend/"
+    },
+    "externalBin": ["binaries/llama-server"]
   },
   "plugins": {
     "deep-link": {

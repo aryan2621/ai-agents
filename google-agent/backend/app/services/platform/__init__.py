@@ -1,1 +1,1 @@
-"""App config, Ollama keys, health, and web search."""
+"""App config, the built-in AI model, health, and web search."""

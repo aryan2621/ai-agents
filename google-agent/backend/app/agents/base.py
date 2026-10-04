@@ -1,7 +1,4 @@
-from app.models.chat import LLMSettings
-from app.services.google_clients import GoogleClients
 from app.services.workspace.workspace_format import format_workspace_context
-from app.types.agents import AgentName, VALID_AGENT_NAMES
 
 GROUNDING_CONTRACT = """You are a Google Workspace assistant. Follow this contract exactly.
 
@@ -36,40 +33,3 @@ def build_system_prompt(
     if context_block:
         sections.append(context_block)
     return "\n\n".join(sections)
-
-
-class BaseAgent:
-    name: AgentName
-    system_prompt: str = "You are a helpful assistant."
-
-    def __init__(self, google: GoogleClients) -> None:
-        self.google = google
-
-    def is_enabled(self, settings: LLMSettings | None) -> bool:
-        if settings and self.name in settings.agent_overrides:
-            return settings.agent_overrides[self.name].enabled
-        return True
-
-
-def get_agent(name: AgentName | str, google: GoogleClients) -> BaseAgent:
-    from app.agents.calendar import CalendarAgent
-    from app.agents.docs import DocsAgent
-    from app.agents.drive import DriveAgent
-    from app.agents.gmail import GmailAgent
-    from app.agents.sheets import SheetsAgent
-    from app.agents.web import WebAgent
-
-    agents: dict[AgentName, type[BaseAgent]] = {
-        "gmail": GmailAgent,
-        "calendar": CalendarAgent,
-        "drive": DriveAgent,
-        "docs": DocsAgent,
-        "sheets": SheetsAgent,
-        "web": WebAgent,
-    }
-    if name not in VALID_AGENT_NAMES:
-        raise ValueError(f"Unknown agent: {name}")
-    resolved: AgentName = name  # type: ignore[assignment]
-    instance = agents[resolved](google)
-    instance.name = resolved
-    return instance

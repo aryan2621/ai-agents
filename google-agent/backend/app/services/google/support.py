@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 import types
 from functools import wraps
 
@@ -11,7 +12,6 @@ from google_auth_httplib2 import AuthorizedHttp
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-from app.services.auth.auth_service import StoredCredentials
 from app.types.json_types import JSONValue
 from app.utils.format import (
     linked_action_summary as _linked_action_summary,
@@ -50,21 +50,28 @@ def _logged_public_method(fn: types.FunctionType) -> types.FunctionType:
     return wrapper  # type: ignore[return-value]
 
 
-def _credentials(creds: StoredCredentials) -> Credentials:
-    return Credentials(token=creds.google_access_token)
+# Built API clients, per worker thread (httplib2 connections aren't thread-safe) and per access
+# token, so a chat's tool calls reuse open connections instead of a fresh TLS handshake each.
+_services = threading.local()
 
 
-def _authorized_http(creds: Credentials) -> AuthorizedHttp:
-    return AuthorizedHttp(creds, http=httplib2.Http(timeout=GOOGLE_HTTP_TIMEOUT_SEC))
-
-
-def _google_service(service_name: str, version: str, creds: Credentials):
-    return build(
-        service_name,
-        version,
-        http=_authorized_http(creds),
-        cache_discovery=False,
-    )
+def _google_service(service_name: str, version: str, token: str):
+    cache: dict = getattr(_services, "by_name", None) or {}
+    if getattr(_services, "token", None) != token:
+        cache = {}
+        _services.token = token
+    _services.by_name = cache
+    service = cache.get(service_name)
+    if service is None:
+        http = AuthorizedHttp(
+            Credentials(token=token), http=httplib2.Http(timeout=GOOGLE_HTTP_TIMEOUT_SEC)
+        )
+        # The discovery documents ship with the library; nothing is fetched to build a client.
+        service = build(
+            service_name, version, http=http, cache_discovery=False, static_discovery=True
+        )
+        cache[service_name] = service
+    return service
 
 
 SHEETS_MIME = "application/vnd.google-apps.spreadsheet"

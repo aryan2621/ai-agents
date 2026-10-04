@@ -12,10 +12,6 @@ pub fn run() {
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::auth::start_github_auth,
-            commands::auth::handle_oauth_callback,
-            commands::auth::focus_main_window,
-            commands::sidecar::start_python_backend,
-            commands::sidecar::stop_python_backend,
             commands::sidecar::check_backend_health,
         ])
         .setup(|app| {

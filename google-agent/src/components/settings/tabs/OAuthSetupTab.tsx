@@ -1,5 +1,6 @@
 'use client'
 
+import { API_BASE_URL } from '@/lib/config'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -78,7 +79,7 @@ export function OAuthSetupTab() {
             <li>
               Add redirect URI:{' '}
               <code className="text-foreground bg-muted px-1 rounded">
-                http://127.0.0.1:8000/auth/google/callback
+                {API_BASE_URL}/auth/google/callback
               </code>
             </li>
             <li>Enable Gmail, Calendar, Drive, Docs, and Sheets APIs for your project</li>

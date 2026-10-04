@@ -1,0 +1,93 @@
+name: Build and release
+
+# Push a tag like v0.1.0 to build both apps and publish them on the Releases page.
+# Run it by hand (Actions → Build and release → Run workflow) to build without releasing.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.name }} (macOS)
+    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - app: github-agent
+            name: GitHub Agent
+            # Secret names can't start with "GITHUB_", hence "GH_AGENT_".
+            secrets: GH_AGENT
+          - app: google-agent
+            name: Google Agent
+            secrets: GOOGLE_AGENT
+    defaults:
+      run:
+        working-directory: ${{ matrix.app }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ matrix.app }}/package-lock.json
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ matrix.app }}/src-tauri
+
+      - run: npm ci
+
+      # beforeBuildCommand builds the Next.js UI and the Python backend sidecar first.
+      # The Rust shell reads the OAuth client from these variables at compile time
+      # (src-tauri/src/commands/sidecar.rs) and hands it to the backend when the app runs.
+      # Each job only receives its own app's secrets.
+      - name: Build app
+        env:
+          GH_AGENT_CLIENT_ID: ${{ matrix.app == 'github-agent' && secrets.GH_AGENT_CLIENT_ID || '' }}
+          GH_AGENT_CLIENT_SECRET: ${{ matrix.app == 'github-agent' && secrets.GH_AGENT_CLIENT_SECRET || '' }}
+          GOOGLE_AGENT_CLIENT_ID: ${{ matrix.app == 'google-agent' && secrets.GOOGLE_AGENT_CLIENT_ID || '' }}
+          GOOGLE_AGENT_CLIENT_SECRET: ${{ matrix.app == 'google-agent' && secrets.GOOGLE_AGENT_CLIENT_SECRET || '' }}
+        run: |
+          id="${{ matrix.secrets }}_CLIENT_ID" secret="${{ matrix.secrets }}_CLIENT_SECRET"
+          if [ -z "${!id}" ] || [ -z "${!secret}" ]; then
+            echo "::error::Add the $id and $secret repository secrets (Settings → Secrets and variables → Actions)."
+            exit 1
+          fi
+          npx tauri build --bundles app,dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.app }}-macos
+          path: ${{ matrix.app }}/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.dmg
+          generate_release_notes: true

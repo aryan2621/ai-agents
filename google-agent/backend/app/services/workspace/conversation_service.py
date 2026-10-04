@@ -1,16 +1,20 @@
-from datetime import datetime, timezone
-
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from datetime import datetime, timedelta, timezone
 
 from app.constants.models import normalize_llm_model
+from app.db.database import Store
+from app.db.models import Conversation, Message, UserSettings
 from app.models.chat import ChatMessage
-from app.db.models import Conversation, Message, User, UserSettings
-from app.services.workspace.workspace_context import sanitize_workspace_context
+from app.services.workspace.workspace_context import (
+    merge_workspace_context as merge_maps,
+    sanitize_workspace_context,
+)
 from app.types.agents import INVALID_AGENT_ROOM, ROOM_AGENT_NAMES, is_room_agent
 
 DEFAULT_AGENT_OVERRIDES = {name: {"enabled": True} for name in ROOM_AGENT_NAMES}
+
+
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 def _migrate_legacy_llm_settings(settings: UserSettings) -> bool:
@@ -35,54 +39,48 @@ def _migrate_legacy_llm_settings(settings: UserSettings) -> bool:
     return changed
 
 
-async def get_or_create_settings(session: AsyncSession, user_id: str) -> UserSettings:
-    result = await session.execute(
-        select(UserSettings).where(UserSettings.user_id == user_id)
-    )
-    settings = result.scalar_one_or_none()
+async def get_or_create_settings(session: Store, user_id: str) -> UserSettings:
+    settings = session.settings.get(user_id)
     if settings is None:
         settings = UserSettings(user_id=user_id, agent_overrides=DEFAULT_AGENT_OVERRIDES.copy())
         session.add(settings)
         await session.commit()
-        await session.refresh(settings)
     elif not settings.agent_overrides:
         settings.agent_overrides = DEFAULT_AGENT_OVERRIDES.copy()
         await session.commit()
     if _migrate_legacy_llm_settings(settings):
         await session.commit()
-        await session.refresh(settings)
     return settings
 
 
-async def _conversation_with_messages(
-    session: AsyncSession, conv_id: str, user_id: str
-) -> Conversation | None:
-    result = await session.execute(
-        select(Conversation)
-        .where(Conversation.id == conv_id, Conversation.user_id == user_id)
-        .options(selectinload(Conversation.messages))
-    )
-    return result.scalar_one_or_none()
+def _owned(session: Store, conv_id: str, user_id: str) -> Conversation | None:
+    conv = session.conversations.get(conv_id)
+    return conv if conv is not None and conv.user_id == user_id else None
 
 
-async def list_conversations(session: AsyncSession, user_id: str) -> list[Conversation]:
-    result = await session.execute(
-        select(Conversation)
-        .where(Conversation.user_id == user_id)
-        .options(selectinload(Conversation.messages))
-        .order_by(Conversation.updated_at.desc())
-    )
-    return list(result.scalars().all())
+# A chat is saved with its first message; one still empty after this long was never used (from
+# before that, or a send that failed), so it's dropped instead of cluttering the list.
+EMPTY_CHAT_MAX_AGE = timedelta(minutes=10)
 
 
-async def get_conversation(
-    session: AsyncSession, user_id: str, conv_id: str
-) -> Conversation | None:
-    return await _conversation_with_messages(session, conv_id, user_id)
+async def list_conversations(session: Store, user_id: str) -> list[Conversation]:
+    owned = [c for c in session.conversations.values() if c.user_id == user_id]
+    cutoff = _now() - EMPTY_CHAT_MAX_AGE
+    unused = [c for c in owned if not c.messages and c.created_at < cutoff]
+    if unused:
+        for conv in unused:
+            await session.delete(conv)
+        await session.commit()
+        owned = [c for c in owned if c not in unused]
+    return sorted(owned, key=lambda c: c.updated_at, reverse=True)
+
+
+async def get_conversation(session: Store, user_id: str, conv_id: str) -> Conversation | None:
+    return _owned(session, conv_id, user_id)
 
 
 async def create_conversation(
-    session: AsyncSession,
+    session: Store,
     user_id: str,
     conv_id: str,
     title: str = "New Chat",
@@ -90,22 +88,16 @@ async def create_conversation(
 ) -> Conversation:
     if not is_room_agent(agent_filter):
         raise ValueError(INVALID_AGENT_ROOM)
+    if conv_id in session.conversations:
+        raise ValueError(f"Conversation {conv_id} already exists")
     conv = Conversation(id=conv_id, user_id=user_id, title=title, agent_filter=agent_filter)
     session.add(conv)
     await session.commit()
-    loaded = await _conversation_with_messages(session, conv_id, user_id)
-    if loaded is None:
-        raise RuntimeError(f"Failed to load conversation {conv_id} after create")
-    return loaded
+    return conv
 
 
-async def delete_conversation(session: AsyncSession, user_id: str, conv_id: str) -> bool:
-    result = await session.execute(
-        select(Conversation).where(
-            Conversation.id == conv_id, Conversation.user_id == user_id
-        )
-    )
-    conv = result.scalar_one_or_none()
+async def delete_conversation(session: Store, user_id: str, conv_id: str) -> bool:
+    conv = _owned(session, conv_id, user_id)
     if conv is None:
         return False
     await session.delete(conv)
@@ -113,56 +105,38 @@ async def delete_conversation(session: AsyncSession, user_id: str, conv_id: str)
     return True
 
 
-async def delete_conversations(
-    session: AsyncSession, user_id: str, conv_ids: list[str]
-) -> int:
+async def delete_conversations(session: Store, user_id: str, conv_ids: list[str]) -> int:
     if not conv_ids:
         return 0
-    unique_ids = list(dict.fromkeys(conv_ids))
-    result = await session.execute(
-        select(Conversation).where(
-            Conversation.user_id == user_id,
-            Conversation.id.in_(unique_ids),
-        )
-    )
-    convs = result.scalars().all()
+    convs = [c for c in (_owned(session, i, user_id) for i in dict.fromkeys(conv_ids)) if c]
     for conv in convs:
         await session.delete(conv)
     await session.commit()
     return len(convs)
 
 
-async def delete_all_conversations(session: AsyncSession, user_id: str) -> None:
-    result = await session.execute(
-        select(Conversation).where(Conversation.user_id == user_id)
-    )
-    for conv in result.scalars().all():
+async def delete_all_conversations(session: Store, user_id: str) -> None:
+    for conv in [c for c in session.conversations.values() if c.user_id == user_id]:
         await session.delete(conv)
     await session.commit()
 
 
 async def rename_conversation(
-    session: AsyncSession, user_id: str, conv_id: str, title: str
+    session: Store, user_id: str, conv_id: str, title: str
 ) -> Conversation | None:
-    result = await session.execute(
-        select(Conversation).where(
-            Conversation.id == conv_id, Conversation.user_id == user_id
-        )
-    )
-    conv = result.scalar_one_or_none()
+    conv = _owned(session, conv_id, user_id)
     if conv is None:
         return None
     conv.title = title
-    conv.updated_at = datetime.now(timezone.utc)
+    conv.updated_at = _now()
     await session.commit()
-    loaded = await _conversation_with_messages(session, conv_id, user_id)
-    return loaded
+    return conv
 
 
 async def get_conversation_history(
-    session: AsyncSession, user_id: str, conv_id: str, limit: int = 20
+    session: Store, user_id: str, conv_id: str, limit: int = 20
 ) -> list[ChatMessage]:
-    conv = await _conversation_with_messages(session, conv_id, user_id)
+    conv = _owned(session, conv_id, user_id)
     if conv is None:
         return []
     messages = conv.messages[-limit:]
@@ -177,62 +151,33 @@ async def get_conversation_history(
     ]
 
 
-async def get_workspace_context(
-    session: AsyncSession, user_id: str, conv_id: str
-) -> dict[str, str]:
-    result = await session.execute(
-        select(Conversation.workspace_context).where(
-            Conversation.id == conv_id, Conversation.user_id == user_id
-        )
-    )
-    raw = result.scalar_one_or_none()
+async def get_workspace_context(session: Store, user_id: str, conv_id: str) -> dict[str, str]:
+    conv = _owned(session, conv_id, user_id)
+    raw = conv.workspace_context if conv is not None else None
     if not isinstance(raw, dict):
         return {}
     return sanitize_workspace_context({str(k): str(v) for k, v in raw.items() if v})
 
 
 async def merge_workspace_context(
-    session: AsyncSession, user_id: str, conv_id: str, updates: dict[str, str]
+    session: Store, user_id: str, conv_id: str, updates: dict[str, str]
 ) -> dict[str, str]:
     if not updates:
         return await get_workspace_context(session, user_id, conv_id)
 
-    result = await session.execute(
-        select(Conversation).where(
-            Conversation.id == conv_id, Conversation.user_id == user_id
-        )
-    )
-    conv = result.scalar_one_or_none()
+    conv = _owned(session, conv_id, user_id)
     if conv is None:
         return {}
 
-    merged = sanitize_workspace_context(conv.workspace_context)
-    merged.update(sanitize_workspace_context(updates))
+    merged = merge_maps(conv.workspace_context, updates)
     conv.workspace_context = merged
-    conv.updated_at = datetime.now(timezone.utc)
+    conv.updated_at = _now()
     await session.commit()
     return {str(k): str(v) for k, v in merged.items() if v}
 
 
-async def update_agent_filter(
-    session: AsyncSession, user_id: str, conv_id: str, agent_filter: str
-) -> Conversation | None:
-    result = await session.execute(
-        select(Conversation).where(
-            Conversation.id == conv_id, Conversation.user_id == user_id
-        )
-    )
-    conv = result.scalar_one_or_none()
-    if conv is None:
-        return None
-    conv.agent_filter = agent_filter
-    conv.updated_at = datetime.now(timezone.utc)
-    await session.commit()
-    return await _conversation_with_messages(session, conv_id, user_id)
-
-
 async def add_message(
-    session: AsyncSession,
+    session: Store,
     user_id: str,
     conv_id: str,
     msg_id: str,
@@ -240,29 +185,17 @@ async def add_message(
     content: str,
     agent_name: str | None = None,
 ) -> Message | None:
-    result = await session.execute(
-        select(Conversation).where(
-            Conversation.id == conv_id, Conversation.user_id == user_id
-        )
-    )
-    conv = result.scalar_one_or_none()
+    conv = _owned(session, conv_id, user_id)
     if conv is None:
         return None
 
-    existing = await session.execute(
-        select(Message).where(
-            Message.id == msg_id,
-            Message.conversation_id == conv_id,
-        )
-    )
-    existing_msg = existing.scalar_one_or_none()
-    conv.updated_at = datetime.now(timezone.utc)
+    conv.updated_at = _now()
+    existing_msg = next((m for m in conv.messages if m.id == msg_id), None)
     if existing_msg is not None:
         existing_msg.content = content
         if agent_name is not None:
             existing_msg.agent_name = agent_name
         await session.commit()
-        await session.refresh(existing_msg)
         return existing_msg
 
     msg = Message(
@@ -272,21 +205,19 @@ async def add_message(
         content=content,
         agent_name=agent_name,
     )
-    conv.updated_at = datetime.now(timezone.utc)
     session.add(msg)
     await session.commit()
-    await session.refresh(msg)
     return msg
 
 
 async def edit_user_message_and_truncate(
-    session: AsyncSession,
+    session: Store,
     user_id: str,
     conv_id: str,
     msg_id: str,
     content: str,
 ) -> Conversation | None:
-    conv = await _conversation_with_messages(session, conv_id, user_id)
+    conv = _owned(session, conv_id, user_id)
     if conv is None:
         return None
 
@@ -302,46 +233,30 @@ async def edit_user_message_and_truncate(
     if target_idx is None:
         return None
 
-    target = ordered[target_idx]
-    target.content = content
-    ids_to_delete = [m.id for m in ordered[target_idx + 1 :]]
-    if ids_to_delete:
-        await session.execute(delete(Message).where(Message.id.in_(ids_to_delete)))
-
-    conv.updated_at = datetime.now(timezone.utc)
+    ordered[target_idx].content = content
+    conv.messages = ordered[: target_idx + 1]
+    conv.updated_at = _now()
     await session.commit()
-    session.expire(conv, ["messages"])
-    return await _conversation_with_messages(session, conv_id, user_id)
+    return conv
 
 
 async def update_message(
-    session: AsyncSession,
+    session: Store,
     user_id: str,
     conv_id: str,
     msg_id: str,
     content: str,
     agent_name: str | None = None,
 ) -> Message | None:
-    result = await session.execute(
-        select(Message)
-        .join(Conversation, Conversation.id == Message.conversation_id)
-        .where(
-            Message.id == msg_id,
-            Message.conversation_id == conv_id,
-            Conversation.user_id == user_id,
-        )
-    )
-    msg = result.scalar_one_or_none()
+    conv = _owned(session, conv_id, user_id)
+    if conv is None:
+        return None
+    msg = next((m for m in conv.messages if m.id == msg_id), None)
     if msg is None:
         return None
     msg.content = content
     if agent_name:
         msg.agent_name = agent_name
-    conv_result = await session.execute(
-        select(Conversation).where(Conversation.id == conv_id)
-    )
-    conv = conv_result.scalar_one()
-    conv.updated_at = datetime.now(timezone.utc)
+    conv.updated_at = _now()
     await session.commit()
-    await session.refresh(msg)
     return msg

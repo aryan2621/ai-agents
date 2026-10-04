@@ -1,7 +1,8 @@
 import time
 
 import httpx
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.config import BACKEND_HOST, BACKEND_PORT
+from app.db.database import Store
 
 from app.services.app_config import resolve_github_credentials
 from app.models.auth import GitHubUserResponse
@@ -20,7 +21,7 @@ GITHUB_TOKEN_URL = "https://github.com/login/oauth/access_token"
 GITHUB_AUTH_URL = "https://github.com/login/oauth/authorize"
 GITHUB_USER_URL = "https://api.github.com/user"
 GITHUB_EMAILS_URL = "https://api.github.com/user/emails"
-GITHUB_OAUTH_REDIRECT_URI = "http://127.0.0.1:8000/auth/github/callback"
+GITHUB_OAUTH_REDIRECT_URI = f"http://{BACKEND_HOST}:{BACKEND_PORT}/auth/github/callback"
 GITHUB_API_ACCEPT = "application/vnd.github+json"
 NON_EXPIRING_TOKEN_TTL = 10 * 365 * 24 * 60 * 60
 
@@ -78,7 +79,7 @@ def _api_headers(access_token: str) -> dict[str, str]:
 
 
 async def exchange_code(
-    session: AsyncSession, code: str, redirect_uri: str
+    session: Store, code: str, redirect_uri: str
 ) -> GitHubUserResponse:
     client_id, client_secret = resolve_github_credentials()
     if not client_id or not client_secret:
@@ -159,7 +160,7 @@ async def fetch_profile_picture(github_access_token: str) -> str:
 
 
 async def refresh_access_token(
-    session: AsyncSession, creds: StoredCredentials
+    session: Store, creds: StoredCredentials
 ) -> StoredCredentials:
     if not creds.refresh_token:
         raise ValueError("No refresh token available; please re-authenticate")
@@ -209,7 +210,7 @@ async def refresh_access_token(
 
 
 async def get_valid_credentials(
-    session: AsyncSession, session_token: str
+    session: Store, session_token: str
 ) -> StoredCredentials:
     creds = await get_credentials_by_access_token(session, session_token)
     if creds is None:

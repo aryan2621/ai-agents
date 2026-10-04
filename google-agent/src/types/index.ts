@@ -32,7 +32,7 @@ export type AgentName =
   | 'sheets'
   | 'web'
 
-export type RoomAgentName = AgentName
+type RoomAgentName = AgentName
 
 export interface Message {
   id: string
@@ -51,6 +51,8 @@ export interface Conversation {
   createdAt: Date
   updatedAt: Date
   agentFilter?: AgentName | 'all' | string
+  /** Opened from the agent picker but not saved yet: it's saved with its first message. */
+  draft?: boolean
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system'
@@ -68,8 +70,24 @@ export interface HealthStatus {
   checks: Record<string, string>
   oauthConfigured?: boolean
   llmConfigured?: boolean
-  ollamaConfigured?: boolean
-  ollamaBaseUrl?: string
+}
+
+/** A built-in AI model (llama.cpp, runs on this Mac). */
+export interface LocalModel {
+  id: string
+  name: string
+  note: string
+  sizeMb: number
+  minRamGb: number
+  installed: boolean
+}
+
+export interface ModelCatalog {
+  ramGb: number
+  recommended: string
+  running: string | null
+  download: { id: string; done: number; total: number; error: string; finished: boolean } | null
+  models: LocalModel[]
 }
 
 export interface Settings {
@@ -82,7 +100,6 @@ export interface Settings {
   theme: ThemeMode
   onboardingCompleted: boolean
   tavilySearchApiKey: string
-  ollamaBaseUrl: string
   agentOverrides: Record<AgentName, { enabled: boolean }>
 }
 
@@ -90,4 +107,3 @@ export interface PendingStarter {
   text: string
   agent: AgentName
 }
-

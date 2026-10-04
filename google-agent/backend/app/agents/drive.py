@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 DRIVE_PROMPT = """Drive specialist. Tool map:
 
 - Recent files → list_my_files
@@ -11,8 +9,3 @@ DRIVE_PROMPT = """Drive specialist. Tool map:
 
 List as numbered **[name](webViewLink)**. After create, include the tool link.
 You may use web_search for public research. You do not have Gmail, Calendar, Docs, or Sheets tools."""
-
-
-class DriveAgent(BaseAgent):
-    name = "drive"
-    system_prompt = DRIVE_PROMPT

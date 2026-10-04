@@ -39,15 +39,6 @@ def list_text(items: list[dict], name_key: str = "name") -> str:
     return "\n".join(lines)
 
 
-def table_preview(values: list[list], max_rows: int = 4) -> str:
-    if not values:
-        return "(empty range)"
-    lines = [" | ".join(str(cell) for cell in row) for row in values[:max_rows]]
-    if len(values) > max_rows:
-        lines.append(f"... +{len(values) - max_rows} more row(s)")
-    return "\n".join(lines)
-
-
 def linked_action_summary(action: str, title: str, link: str, *, fallback: str) -> str:
     if link and title:
         return f"{action} **[{title}]({link})**."

@@ -2,9 +2,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-
+from app.db.database import Store
 from app.db.models import OAuthToken, User, UserSettings
 from app.models.auth import GitHubUserResponse, PermissionStatusResponse
 from app.services.scope_registry import (
@@ -35,29 +33,26 @@ def is_expired(expires_at: int, buffer_seconds: int = 60) -> bool:
 
 
 async def upsert_user_with_token(
-    session: AsyncSession,
+    session: Store,
     creds: StoredCredentials,
 ) -> None:
-    result = await session.execute(select(User).where(User.id == creds.user_id))
-    user = result.scalar_one_or_none()
+    user = session.users.get(creds.user_id)
     if user is None:
-        user = User(
-            id=creds.user_id,
-            email=creds.email,
-            name=creds.name,
-            picture=creds.picture,
+        session.add(
+            User(
+                id=creds.user_id,
+                email=creds.email,
+                name=creds.name,
+                picture=creds.picture,
+            )
         )
-        session.add(user)
     else:
         user.email = creds.email
         user.name = creds.name
         if creds.picture:
             user.picture = creds.picture
 
-    token_result = await session.execute(
-        select(OAuthToken).where(OAuthToken.user_id == creds.user_id)
-    )
-    token = token_result.scalar_one_or_none()
+    token = session.tokens.get(creds.user_id)
     if token is None:
         session.add(
             OAuthToken(
@@ -78,27 +73,24 @@ async def upsert_user_with_token(
         if creds.granted_scopes:
             token.granted_scopes = creds.granted_scopes
 
-    settings_result = await session.execute(
-        select(UserSettings).where(UserSettings.user_id == creds.user_id)
-    )
-    if settings_result.scalar_one_or_none() is None:
+    if creds.user_id not in session.settings:
         session.add(UserSettings(user_id=creds.user_id))
 
     await session.commit()
 
 
-async def get_credentials_by_access_token(
-    session: AsyncSession, session_token: str
-) -> StoredCredentials | None:
-    result = await session.execute(
-        select(OAuthToken, User)
-        .join(User, User.id == OAuthToken.user_id)
-        .where(OAuthToken.access_token == session_token)
-    )
-    row = result.first()
-    if row is None:
+def _find_by_session_token(session: Store, session_token: str) -> tuple[User, OAuthToken] | None:
+    if not session_token:
         return None
-    token, user = row
+    for token in session.tokens.values():
+        if token.access_token == session_token:
+            user = session.users.get(token.user_id)
+            if user is not None:
+                return user, token
+    return None
+
+
+def _credentials(user: User, token: OAuthToken) -> StoredCredentials:
     return StoredCredentials(
         user_id=user.id,
         email=user.email,
@@ -112,35 +104,27 @@ async def get_credentials_by_access_token(
     )
 
 
+async def get_credentials_by_access_token(
+    session: Store, session_token: str
+) -> StoredCredentials | None:
+    found = _find_by_session_token(session, session_token)
+    return _credentials(*found) if found else None
+
+
 async def update_github_access_token(
-    session: AsyncSession,
+    session: Store,
     session_token: str,
     github_access_token: str,
     expires_at: int,
 ) -> StoredCredentials | None:
-    result = await session.execute(
-        select(OAuthToken, User)
-        .join(User, User.id == OAuthToken.user_id)
-        .where(OAuthToken.access_token == session_token)
-    )
-    row = result.first()
-    if row is None:
+    found = _find_by_session_token(session, session_token)
+    if found is None:
         return None
-    token, user = row
+    user, token = found
     token.github_access_token = encrypt_token(github_access_token)
     token.expires_at = expires_at
     await session.commit()
-    return StoredCredentials(
-        user_id=user.id,
-        email=user.email,
-        name=user.name,
-        picture=user.picture,
-        session_token=token.access_token,
-        github_access_token=decrypt_token(token.github_access_token),
-        refresh_token=decrypt_token(token.refresh_token),
-        expires_at=token.expires_at,
-        granted_scopes=token.granted_scopes or "",
-    )
+    return _credentials(user, token)
 
 
 def new_session_token() -> str:
@@ -171,22 +155,13 @@ def to_user_response(creds: StoredCredentials) -> GitHubUserResponse:
 
 
 async def get_user_by_access_token(
-    session: AsyncSession, access_token: str
+    session: Store, access_token: str
 ) -> tuple[User, OAuthToken] | None:
-    result = await session.execute(
-        select(User, OAuthToken)
-        .join(OAuthToken, OAuthToken.user_id == User.id)
-        .where(OAuthToken.access_token == access_token)
-    )
-    row = result.first()
-    return row if row else None
+    return _find_by_session_token(session, access_token)
 
 
-async def delete_user_session(session: AsyncSession, access_token: str) -> None:
-    result = await session.execute(
-        select(OAuthToken).where(OAuthToken.access_token == access_token)
-    )
-    token = result.scalar_one_or_none()
-    if token:
-        await session.delete(token)
+async def delete_user_session(session: Store, access_token: str) -> None:
+    found = _find_by_session_token(session, access_token)
+    if found:
+        await session.delete(found[1])
         await session.commit()

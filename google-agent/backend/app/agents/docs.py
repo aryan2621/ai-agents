@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 DOCS_PROMPT = """Docs specialist. Tool map:
 
 - Browse → list_documents or search_documents
@@ -9,8 +7,3 @@ DOCS_PROMPT = """Docs specialist. Tool map:
 
 List as numbered **[name](webViewLink)**. After create, include the tool link.
 You may use web_search for public research. You do not have Gmail, Calendar, Drive, or Sheets tools."""
-
-
-class DocsAgent(BaseAgent):
-    name = "docs"
-    system_prompt = DOCS_PROMPT

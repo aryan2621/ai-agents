@@ -18,6 +18,9 @@ import { useWindowHeight } from '@/hooks/useWindowHeight'
 import { usePlatform } from '@/hooks/usePlatform'
 import { themeInitScript } from '@/lib/theme'
 import { fontSizeInitScript } from '@/lib/fontSize'
+import '@fontsource-variable/inter'
+import '@fontsource-variable/source-serif-4'
+import '@fontsource-variable/jetbrains-mono'
 import './globals.css'
 
 const TitleBar = dynamic(

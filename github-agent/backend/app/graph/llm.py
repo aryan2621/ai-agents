@@ -1,106 +1,49 @@
 from __future__ import annotations
 
-import logging
 from typing import Any
 
-from app.constants.models import DEFAULT_LLM_TEMPERATURE, normalize_llm_model
+from app.constants.models import SPECIALIST_LLM_TEMPERATURE, SPECIALIST_MAX_TOKENS, normalize_llm_model
 from app.models.chat import LLMSettings
-from app.types.agents import AgentName
 
-logger = logging.getLogger("app.llm")
-
-OLLAMA_REQUEST_TIMEOUT_SEC = 120.0
+LLM_REQUEST_TIMEOUT_SEC = 120.0
 NO_LLM_CONFIGURED = (
-    "Ollama is not available. Start Ollama locally and pull a model in Settings → Models."
+    "No AI model is downloaded yet. Download one in Settings → Models."
 )
 
 
-def resolve_llm_sampling(
-    settings: LLMSettings | None,
-    agent_name: AgentName | None = None,
-    temperature_override: float | None = None,
-) -> tuple[float, float, float | None]:
-    del settings, agent_name
-    from app.constants.models import (
-        SPECIALIST_LLM_TEMPERATURE,
-        SPECIALIST_LLM_TOP_P,
-        SPECIALIST_REPEAT_PENALTY,
-    )
-
-    if temperature_override is not None:
-        temperature = max(0.0, min(2.0, temperature_override))
-    else:
-        temperature = SPECIALIST_LLM_TEMPERATURE
-
-    return temperature, SPECIALIST_LLM_TOP_P, SPECIALIST_REPEAT_PENALTY
+def _active_model_name(settings: LLMSettings | None) -> str:
+    return normalize_llm_model(settings.default_model if settings else "")
 
 
-def _resolve_ollama_url(settings: LLMSettings | None) -> str:
-    from app.services.llm_keys import resolve_ollama_base_url
+async def ensure_model_running(settings: LLMSettings | None) -> None:
+    """Load the chosen built-in model before build_chat_model is called."""
+    from app.services.local_llm import ensure_running
 
-    return resolve_ollama_base_url(settings.ollama_base_url if settings else None)
-
-
-def active_model_name(
-    settings: LLMSettings | None,
-    agent_model: str | None = None,
-) -> str:
-    return resolve_active_model_name(settings, agent_model)
-
-
-def resolve_active_model_name(
-    settings: LLMSettings | None,
-    agent_model: str | None = None,
-) -> str:
-    requested = (agent_model or (settings.default_model if settings else "") or "").strip()
-    return normalize_llm_model(requested)
-
-
-def _build_ollama(base_url: str, model: str, temperature: float, max_tokens: int) -> Any:
-    from langchain_ollama import ChatOllama
-
-    return ChatOllama(
-        model=model,
-        base_url=base_url,
-        temperature=temperature,
-        num_predict=max_tokens,
-        timeout=OLLAMA_REQUEST_TIMEOUT_SEC,
-        reasoning=False,
-    )
+    await ensure_running(_active_model_name(settings))
 
 
 def build_chat_model(
     settings: LLMSettings | None,
-    agent_model: str | None = None,
-    agent_name: AgentName | None = None,
-    temperature_override: float | None = None,
-    max_tokens_override: int | None = None,
-    validate_model_on_init: bool = True,
+    temperature: float = SPECIALIST_LLM_TEMPERATURE,
+    max_tokens: int = SPECIALIST_MAX_TOKENS,
 ) -> Any:
-    del validate_model_on_init
-    from app.config import get_settings
-    from app.constants.models import SPECIALIST_MAX_TOKENS
-    from app.services.llm_keys import ollama_is_reachable
+    from langchain_openai import ChatOpenAI
 
-    app_settings = get_settings()
-    llm = settings or LLMSettings(
-        default_model=app_settings.default_model,
-        temperature=DEFAULT_LLM_TEMPERATURE,
-    )
-    temperature, _top_p, _repeat_penalty = resolve_llm_sampling(
-        llm,
-        agent_name=agent_name,
-        temperature_override=temperature_override,
-    )
+    from app.services.local_llm import running
 
-    if max_tokens_override is not None:
-        num_predict = max_tokens_override
-    else:
-        num_predict = SPECIALIST_MAX_TOKENS
-
-    ollama_url = _resolve_ollama_url(llm)
-    if not ollama_is_reachable(ollama_url):
+    del settings  # the running server already has the chosen model loaded
+    current = running()
+    if current is None:
         raise RuntimeError(NO_LLM_CONFIGURED)
-
-    model_name = resolve_active_model_name(llm, agent_model)
-    return _build_ollama(ollama_url, model_name, temperature, num_predict)
+    base_url, api_key, model_name = current
+    # llama-server speaks the OpenAI chat API, tool calls included (--jinja).
+    return ChatOpenAI(
+        base_url=base_url,
+        api_key=api_key,
+        model=model_name,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        timeout=LLM_REQUEST_TIMEOUT_SEC,
+        max_retries=0,
+        streaming=True,
+    )

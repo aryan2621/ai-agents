@@ -87,13 +87,12 @@ export function ConversationItem({
     <>
       <div
         className={cn(
-          'group flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors duration-fast',
+          'group flex items-center gap-2 rounded-lg transition-colors duration-fast',
+          showUpdatedAt ? 'px-3 py-3 rounded-none' : 'px-2 py-1.5',
           !disableRowClick && 'cursor-pointer',
-          isSelected
+          isSelected || isActive
             ? 'bg-accent text-foreground'
-            : isActive
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+            : 'text-foreground/80 hover:bg-accent hover:text-foreground'
         )}
         onClick={disableRowClick ? undefined : onSelect}
       >
@@ -116,9 +115,9 @@ export function ConversationItem({
         )}
 
         <span className="flex-1 min-w-0">
-          <span className="block text-app-caption truncate">{conversation.title}</span>
+          <span className="block text-sm truncate">{conversation.title}</span>
           {agentLabel ? (
-            <span className="block text-[10px] text-muted-foreground truncate">{agentLabel}</span>
+            <span className="block text-xs text-muted-foreground truncate">{agentLabel}</span>
           ) : null}
         </span>
 
@@ -137,7 +136,7 @@ export function ConversationItem({
                 showCheckbox ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'
               )}
             >
-              <MoreHorizontal size={12} />
+              <MoreHorizontal size={14} />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-40">

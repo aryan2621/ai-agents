@@ -1,7 +1,4 @@
-from app.models.chat import LLMSettings
-from app.services.github_clients import GitHubClients
 from app.services.workspace_format import format_workspace_context
-from app.types.agents import AgentName, VALID_AGENT_NAMES
 
 GROUNDING_CONTRACT = """You are a GitHub assistant. Follow this contract exactly.
 
@@ -36,39 +33,3 @@ def build_system_prompt(
         sections.append(context_block)
     return "\n\n".join(sections)
 
-
-class BaseAgent:
-    name: AgentName
-    system_prompt: str = "You are a helpful assistant."
-
-    def __init__(self, github: GitHubClients) -> None:
-        self.github = github
-
-    def is_enabled(self, settings: LLMSettings | None) -> bool:
-        if settings and self.name in settings.agent_overrides:
-            return settings.agent_overrides[self.name].enabled
-        return True
-
-
-def get_agent(name: AgentName | str, github: GitHubClients) -> BaseAgent:
-    from app.agents.code import CodeAgent
-    from app.agents.issues import IssuesAgent
-    from app.agents.notifications import NotificationsAgent
-    from app.agents.pulls import PullsAgent
-    from app.agents.repos import ReposAgent
-    from app.agents.web import WebAgent
-
-    agents: dict[AgentName, type[BaseAgent]] = {
-        "repos": ReposAgent,
-        "issues": IssuesAgent,
-        "pulls": PullsAgent,
-        "code": CodeAgent,
-        "notifications": NotificationsAgent,
-        "web": WebAgent,
-    }
-    if name not in VALID_AGENT_NAMES:
-        raise ValueError(f"Unknown agent: {name}")
-    resolved: AgentName = name  # type: ignore[assignment]
-    instance = agents[resolved](github)
-    instance.name = resolved
-    return instance

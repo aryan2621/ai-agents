@@ -25,10 +25,9 @@ export function cancelActiveStream() {
 
 interface StreamChunk {
   chunk?: string
+  /** The whole reply so far, replacing what was streamed (cleared text, or the checked answer). */
+  replace?: string
   agent?: string
-  agents?: string[]
-  phase?: 'executing' | 'synthesizing'
-  done?: boolean
   error?: string
   code?: string
   scope?: string
@@ -50,6 +49,7 @@ export async function streamChat(params: {
   settings?: Settings
   signal?: AbortSignal
   onChunk: (text: string, agent?: string) => void
+  onReplace: (text: string) => void
   onDone: () => void
   onError: (err: string) => void
   onPermissionError?: (err: PermissionError) => void
@@ -73,7 +73,6 @@ export async function streamChat(params: {
       temperature: params.settings.temperature,
       max_tokens: params.settings.maxTokens,
       agent_overrides: params.settings.agentOverrides,
-      ollama_base_url: params.settings.ollamaBaseUrl,
     }
   }
 
@@ -130,9 +129,8 @@ export async function streamChat(params: {
             return
           }
           if (parsed.chunk) params.onChunk(parsed.chunk, parsed.agent)
-          if (parsed.agent && !parsed.chunk && !parsed.phase) {
-            params.onChunk('', parsed.agent)
-          }
+          if (typeof parsed.replace === 'string') params.onReplace(parsed.replace)
+          if (parsed.agent && !parsed.chunk) params.onChunk('', parsed.agent)
         } catch {
           // skip malformed SSE lines
         }

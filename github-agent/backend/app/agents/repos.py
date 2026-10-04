@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 REPOS_PROMPT = """Repos specialist. Tool map:
 
 - Recent repos → list_my_repos
@@ -11,8 +9,3 @@ REPOS_PROMPT = """Repos specialist. Tool map:
 
 List items as numbered **[title](link)** — language, date. After create/update, include the tool link.
 You may use web_search for public research. You do not have Issues, Pulls, Code, or Notifications tools."""
-
-
-class ReposAgent(BaseAgent):
-    name = "repos"
-    system_prompt = REPOS_PROMPT

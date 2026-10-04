@@ -42,7 +42,7 @@ export function isListeningSupported(): boolean {
   return getSpeechRecognitionCtor() !== null
 }
 
-export function mapSpeechRecognitionError(code: string): string {
+function mapSpeechRecognitionError(code: string): string {
   switch (code) {
     case 'not-allowed':
       return 'Microphone permission denied'
@@ -57,7 +57,7 @@ export function mapSpeechRecognitionError(code: string): string {
   }
 }
 
-export interface SpeechListenHandlers {
+interface SpeechListenHandlers {
   onInterim?: (text: string) => void
   onFinal?: (text: string) => void
   onError?: (message: string) => void

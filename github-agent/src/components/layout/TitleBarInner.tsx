@@ -30,7 +30,7 @@ export function TitleBarInner() {
 
   return (
     <div
-      className="h-8 flex items-center justify-between select-none shrink-0 bg-background border-b border-border"
+      className="h-8 flex items-center justify-between select-none shrink-0 bg-sidebar border-b border-border"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
       <div className="flex-1 flex items-center px-3">

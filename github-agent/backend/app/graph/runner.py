@@ -1,23 +1,18 @@
 from collections.abc import AsyncGenerator
 
 from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage, ToolMessage
-from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import create_react_agent
-from langgraph.types import RunnableConfig
 
 from app.agents.base import build_system_prompt
-from app.graph.llm import build_chat_model
+from app.graph.llm import build_chat_model, ensure_model_running
 from app.models.chat import ChatMessage, LLMSettings
 from app.services.grounding import empty_specialist_fallback, ground_assistant_text
 from app.services.github_clients import GitHubClients
 from app.services.workspace_context import extract_workspace_updates
 from app.tools.registry import get_agent_prompt, get_tools_for_agent
-from app.types.agents import AgentName, SPECIALIST_AGENT_NAMES
+from app.types.agents import AgentName
 
 MAX_RECURSION = 15
-EMPTY_SPECIALIST_RESPONSE = (
-    "The specialist could not retrieve verified data for that task."
-)
 
 
 def _history_to_messages(
@@ -40,75 +35,6 @@ def _history_to_messages(
     return messages
 
 
-def build_react_graph(
-    agent_name: AgentName,
-    github: GitHubClients,
-    settings: LLMSettings | None,
-    workspace_context: dict[str, str] | None = None,
-    tavily_api_key: str | None = None,
-) -> CompiledStateGraph | None:
-    tools = get_tools_for_agent(
-        agent_name, github, workspace_context, tavily_api_key=tavily_api_key
-    )
-    if not tools:
-        return None
-
-    model = build_chat_model(
-        settings,
-        agent_name=agent_name,
-    )
-    prompt = build_system_prompt(get_agent_prompt(agent_name, github), workspace_context)
-    return create_react_agent(model, tools, prompt=prompt, name=agent_name)
-
-
-def _is_agent_response(msg: AIMessage | AIMessageChunk, metadata: dict) -> bool:
-    if metadata.get("langgraph_node") != "agent":
-        return False
-    if msg.tool_calls or getattr(msg, "tool_call_chunks", None):
-        return False
-    content = msg.content
-    return isinstance(content, str) and bool(content)
-
-
-def _extract_final_response(messages: list) -> str | None:
-    for msg in reversed(messages):
-        if isinstance(msg, AIMessage) and not msg.tool_calls:
-            content = msg.content
-            if isinstance(content, str) and content.strip():
-                return content
-    return None
-
-
-def _messages_after_stream(baseline_messages: list, stream_messages: list) -> list:
-    if stream_messages:
-        return [*baseline_messages, *stream_messages]
-    return baseline_messages
-
-
-async def _stream_simple(
-    agent_name: AgentName,
-    message: str,
-    history: list[ChatMessage],
-    github: GitHubClients,
-    settings: LLMSettings | None,
-    workspace_context: dict[str, str] | None = None,
-) -> AsyncGenerator[str, None]:
-    model = build_chat_model(
-        settings,
-        agent_name=agent_name,
-    )
-    prompt = build_system_prompt(get_agent_prompt(agent_name, github), workspace_context)
-    messages: list[dict[str, str]] = [{"role": "system", "content": prompt}]
-    for msg in history[-20:]:
-        messages.append({"role": msg.role, "content": msg.content})
-    messages.append({"role": "user", "content": message})
-
-    async for chunk in model.astream(messages):
-        content = chunk.content
-        if isinstance(content, str) and content:
-            yield content
-
-
 async def stream_agent(
     agent_name: AgentName,
     message: str,
@@ -118,87 +44,49 @@ async def stream_agent(
     workspace_context: dict[str, str] | None = None,
     workspace_updates: dict[str, str] | None = None,
     tavily_api_key: str | None = None,
-) -> AsyncGenerator[str, None]:
+) -> AsyncGenerator[tuple[str, str], None]:
+    """Yields ("delta", text) as the model writes, then ("final", text): the checked answer.
+
+    Deltas go straight to the screen so the reply appears while it is generated. Text a model
+    writes before deciding to call a tool is not the answer, so a ("reset", "") clears it; the
+    final text replaces whatever was shown if grounding changed it.
+    """
     ctx = dict(workspace_context or {})
-    graph = build_react_graph(
-        agent_name, github, settings, ctx, tavily_api_key=tavily_api_key
-    )
+    await ensure_model_running(settings)
+    tools = get_tools_for_agent(agent_name, github, ctx, tavily_api_key=tavily_api_key)
+    model = build_chat_model(settings)
+    prompt = build_system_prompt(get_agent_prompt(agent_name), ctx)
+    graph = create_react_agent(model, tools, prompt=prompt, name=agent_name)
 
-    if graph is None:
-        async for chunk in _stream_simple(
-            agent_name, message, history, github, settings, ctx
-        ):
-            yield chunk
-        return
-
-    config: RunnableConfig = {"recursion_limit": MAX_RECURSION}
-    state: dict = {"messages": _history_to_messages(history, message)}
-    stream_messages: list[AIMessage | ToolMessage] = []
-    parts: list[str] = []
+    tool_messages: list[ToolMessage] = []
+    current: list[str] = []  # text of the agent message being written
 
     async for msg, metadata in graph.astream(
-        state,
+        {"messages": _history_to_messages(history, message)},
         stream_mode="messages",
-        config=config,
+        config={"recursion_limit": MAX_RECURSION},
     ):
         if isinstance(msg, ToolMessage):
-            stream_messages.append(msg)
+            tool_messages.append(msg)
             continue
         if not isinstance(msg, (AIMessageChunk, AIMessage)):
             continue
-        if isinstance(msg, AIMessage):
-            stream_messages.append(msg)
+        if metadata.get("langgraph_node") != "agent":
+            continue
         if msg.tool_calls or getattr(msg, "tool_call_chunks", None):
+            if current:
+                current = []
+                yield "reset", ""
             continue
-        if not _is_agent_response(msg, metadata):
-            continue
-        content = msg.content  # type: ignore[misc]
+        content = msg.content
         if isinstance(content, str) and content:
-            parts.append(content)
+            current.append(content)
+            yield "delta", content
 
-    final_messages = _messages_after_stream(state["messages"], stream_messages)
-
-    tool_messages = [m for m in final_messages if isinstance(m, ToolMessage)]
     if workspace_updates is not None and tool_messages:
         workspace_updates.update(extract_workspace_updates(tool_messages))
-        ctx.update(workspace_updates)
 
-    raw = "".join(parts).strip()
-    if not raw:
-        raw = (_extract_final_response(final_messages) or "").strip()
-
-    if agent_name in SPECIALIST_AGENT_NAMES:
-        grounded = ground_assistant_text(raw, tool_messages)
-        if not grounded.strip():
-            grounded = empty_specialist_fallback(tool_messages)
-        yield grounded
-        return
-
-    if raw:
-        yield raw
-        return
-
-
-async def collect_agent_response(
-    agent_name: AgentName,
-    message: str,
-    history: list[ChatMessage],
-    github: GitHubClients,
-    settings: LLMSettings | None = None,
-    workspace_context: dict[str, str] | None = None,
-    workspace_updates: dict[str, str] | None = None,
-    tavily_api_key: str | None = None,
-) -> str:
-    parts: list[str] = []
-    async for chunk in stream_agent(
-        agent_name,
-        message,
-        history,
-        github,
-        settings,
-        workspace_context,
-        workspace_updates,
-        tavily_api_key=tavily_api_key,
-    ):
-        parts.append(chunk)
-    return "".join(parts) or EMPTY_SPECIALIST_RESPONSE
+    final = ground_assistant_text("".join(current).strip(), tool_messages)
+    if not final.strip():
+        final = empty_specialist_fallback(tool_messages)
+    yield "final", final

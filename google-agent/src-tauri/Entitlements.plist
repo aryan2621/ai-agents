@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- The Python backend is a PyInstaller build: at launch it unpacks its own Python runtime,
+       which isn't signed with this app's certificate. The hardened runtime refuses to load it
+       unless library validation is off. -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <!-- Voice input in chat (NSMicrophoneUsageDescription in Info.plist). -->
+  <key>com.apple.security.device.audio-input</key>
+  <true/>
+</dict>
+</plist>

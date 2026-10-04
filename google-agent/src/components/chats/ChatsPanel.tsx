@@ -36,7 +36,8 @@ export function ChatsPanel() {
 
   const filtered = useMemo(
     () =>
-      [...conversations]
+      conversations
+        .filter((c) => !c.draft)
         .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
         .filter((c) => c.title.toLowerCase().includes(search.toLowerCase())),
     [conversations, search]
@@ -106,15 +107,15 @@ export function ChatsPanel() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-background">
-      <header className="shrink-0 px-6 py-4 border-b border-border space-y-4">
+      <header className="shrink-0 w-full max-w-3xl mx-auto px-6 pt-10 pb-4 space-y-5">
         <div>
-          <h1 className="text-app-body font-semibold text-foreground">Chats</h1>
-          <p className="text-app-caption text-muted-foreground mt-0.5">
+          <h1 className="font-serif text-[2rem] leading-tight font-normal text-foreground">Chats</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {filtered.length} conversation{filtered.length === 1 ? '' : 's'}
           </p>
         </div>
 
-        <div className="relative max-w-md">
+        <div className="relative">
           <Search
             size={14}
             strokeWidth={iconStroke}
@@ -124,13 +125,13 @@ export function ChatsPanel() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search chats..."
-            className="pl-9 h-9 text-app-caption bg-card border-border"
+            className="pl-9 h-10 text-sm rounded-xl"
           />
         </div>
       </header>
 
       <div className="group/list flex flex-col flex-1 min-h-0">
-        <div className="flex-1 overflow-y-auto px-6 py-3">
+        <div className="flex-1 overflow-y-auto w-full max-w-3xl mx-auto px-6 py-2">
           {pageItems.length > 0 && (
             <label
               className={cn(
@@ -147,11 +148,11 @@ export function ChatsPanel() {
                 className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
                 aria-label={allPageSelected ? 'Deselect page' : 'Select all on page'}
               />
-              <span className="text-app-caption text-muted-foreground">Select all on page</span>
+              <span className="text-sm text-muted-foreground">Select all on page</span>
             </label>
           )}
 
-          <div className="space-y-0.5">
+          <div className={cn(pageItems.length > 0 && 'divide-y divide-border border-y border-border')}>
             {pageItems.map((conv) => (
               <ConversationItem
                 key={conv.id}
@@ -167,7 +168,7 @@ export function ChatsPanel() {
             ))}
 
             {filtered.length === 0 && (
-              <p className="text-app-caption text-muted-foreground text-center py-12">
+              <p className="text-sm text-muted-foreground text-center py-12">
                 No conversations found
               </p>
             )}
@@ -175,8 +176,8 @@ export function ChatsPanel() {
         </div>
 
         {filtered.length > PAGE_SIZE && (
-          <div className="shrink-0 border-t border-border px-6 py-3 flex items-center justify-between gap-3 bg-background">
-            <p className="text-app-caption text-muted-foreground">
+          <div className="shrink-0 w-full max-w-3xl mx-auto px-6 py-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-muted-foreground">
               {rangeStart}–{rangeEnd} of {filtered.length}
             </p>
             <div className="flex items-center gap-1">
@@ -203,8 +204,8 @@ export function ChatsPanel() {
         )}
 
         {hasSelection && (
-          <div className="shrink-0 border-t border-border bg-background px-6 py-3 flex items-center justify-between gap-2">
-            <span className="text-app-caption text-foreground font-medium">
+          <div className="shrink-0 w-full max-w-3xl mx-auto mb-4 px-4 py-2 flex items-center justify-between gap-2 rounded-xl border border-border bg-popover shadow-[0_8px_24px_-8px_hsl(var(--foreground)/0.15)]">
+            <span className="text-sm text-foreground font-medium">
               {selectedCount} selected
             </span>
             <div className="flex items-center gap-1">

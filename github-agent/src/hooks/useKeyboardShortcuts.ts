@@ -10,14 +10,9 @@ export function registerSettingsOpenHandler(handler: () => void) {
   settingsOpenHandler = handler
 }
 
-export function openSettingsModal() {
-  settingsOpenHandler?.()
-}
-
 export function useKeyboardShortcuts() {
   const startNewChat = useChatStore((s) => s.startNewChat)
   const openChat = useAppViewStore((s) => s.openChat)
-  const toggleSidebar = useAppViewStore((s) => s.toggleSidebar)
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -30,12 +25,6 @@ export function useKeyboardShortcuts() {
         return
       }
 
-      if (mod && e.key === 'b') {
-        e.preventDefault()
-        toggleSidebar()
-        return
-      }
-
       if (mod && e.key === ',') {
         e.preventDefault()
         settingsOpenHandler?.()
@@ -44,5 +33,5 @@ export function useKeyboardShortcuts() {
 
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [startNewChat, openChat, toggleSidebar])
+  }, [startNewChat, openChat])
 }

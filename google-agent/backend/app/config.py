@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 from functools import lru_cache
@@ -6,30 +7,42 @@ from pathlib import Path
 from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from app.constants.models import DEFAULT_LLM_MODEL, DEFAULT_OLLAMA_BASE_URL
+from app.constants.models import DEFAULT_LLM_MODEL
+
+
+APP_DIR_NAME = "Google Agent"
+
+
+def _ports() -> dict[str, int]:
+    """The app's ports, from ports.json at the project root: the one place they are set (the
+    Tauri shell, the window's CSP check, the frontend and the dev scripts read it too). Bundled
+    into the PyInstaller build."""
+    base = Path(getattr(sys, "_MEIPASS", "") or Path(__file__).resolve().parents[2])
+    return json.loads((base / "ports.json").read_text(encoding="utf-8"))
+
+
+PORTS = _ports()
+# Where the backend listens. Fixed (the OAuth redirect URI registered with Google names it), and
+# deliberately not read from HOST/PORT, which other tools often set.
+BACKEND_HOST = "127.0.0.1"
+BACKEND_PORT = PORTS["backend"]
 
 
 def _app_data_dir() -> Path:
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).resolve().parent / "data"
-    return Path(__file__).resolve().parent.parent / "data"
-
-
-def _default_sqlite_url() -> str:
-    data_dir = _app_data_dir()
-    data_dir.mkdir(parents=True, exist_ok=True)
-    db_path = data_dir / "google_agent.db"
-    return f"sqlite+aiosqlite:///{db_path}"
-
-
-def _default_database_url() -> str:
-    if os.environ.get("DATABASE_URL", "").strip():
-        return os.environ["DATABASE_URL"].strip()
-    return _default_sqlite_url()
-
-
-def is_sqlite_url(url: str) -> bool:
-    return url.startswith("sqlite")
+    """Where chats, settings and models live: the user's app-data folder, outside the app bundle
+    so reinstalling or updating the app keeps them. GOOGLE_AGENT_DATA_DIR overrides it."""
+    override = os.environ.get("GOOGLE_AGENT_DATA_DIR", "").strip()
+    if override:
+        path = Path(override).expanduser()
+    elif sys.platform == "darwin":
+        path = Path.home() / "Library" / "Application Support" / APP_DIR_NAME
+    elif sys.platform == "win32":
+        path = Path(os.environ.get("APPDATA", Path.home())) / APP_DIR_NAME
+    else:
+        base = os.environ.get("XDG_DATA_HOME") or Path.home() / ".local" / "share"
+        path = Path(base) / "google-agent"
+    path.mkdir(parents=True, exist_ok=True)
+    return path
 
 
 def _env_file_candidates() -> list[Path]:
@@ -98,11 +111,9 @@ class Settings(BaseSettings):
 
     google_client_id: str = ""
     google_client_secret: str = ""
-    database_url: str = _default_database_url()
     default_model: str = DEFAULT_LLM_MODEL
-    ollama_base_url: str = DEFAULT_OLLAMA_BASE_URL
-    host: str = "127.0.0.1"
-    port: int = 8000
+    # The dev UI's port (next dev, see scripts/dev.sh); the backend accepts requests from it.
+    ui_port: int = Field(default=PORTS["ui"], validation_alias="GOOGLE_AGENT_UI_PORT")
     tavily_search_api_key: str = Field(
         default="",
         validation_alias=AliasChoices("TAVILY_SEARCH_API_KEY", "TAVILY_API_KEY"),

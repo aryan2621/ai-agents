@@ -30,12 +30,14 @@ interface ChatState {
   startNewChat: () => void
   selectConversation: (id: string) => Promise<void>
   createConversation: (agentFilter: RoomAgentName) => Promise<string>
+  saveDraft: (id: string) => Promise<void>
   deleteConversation: (id: string) => Promise<void>
   deleteConversations: (ids: string[]) => Promise<void>
   renameConversation: (id: string, title: string) => Promise<void>
   generateConversationTitle: (id: string, message: string, settings?: Settings) => Promise<void>
   addMessage: (convId: string, msg: Message) => void
   appendChunk: (convId: string, msgId: string, chunk: string) => void
+  replaceContent: (convId: string, msgId: string, content: string) => void
   finalizeMessage: (convId: string, msgId: string, agentName?: Message['agentName'], error?: string) => Promise<void>
   editMessageAndTruncate: (convId: string, msgId: string, content: string) => Promise<void>
   setGenerating: (val: boolean) => void
@@ -66,6 +68,11 @@ function truncateMessagesAfter(
   })
 }
 
+/** Unsent drafts other than `keep`: leaving a draft discards it, so it never lingers. */
+function withoutDrafts(conversations: Conversation[], keep?: string | null): Conversation[] {
+  return conversations.filter((c) => !c.draft || c.id === keep)
+}
+
 function emptyConversation(id: string, agentFilter: RoomAgentName): Conversation {
   const now = new Date()
   return {
@@ -91,7 +98,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
     set({ isLoadingChats: true })
     try {
       const convs = await fetchConversations()
-      set({ conversations: convs })
+      set((s) => ({ conversations: [...s.conversations.filter((c) => c.draft), ...convs] }))
     } catch {
       // ignore load failures; UI stays empty until retry
     } finally {
@@ -99,12 +106,17 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
-  setActiveId: (id) => set({ activeId: id }),
+  setActiveId: (id) =>
+    set((s) => ({ activeId: id, conversations: withoutDrafts(s.conversations, id) })),
 
-  startNewChat: () => set({ activeId: null }),
+  startNewChat: () => set((s) => ({ activeId: null, conversations: withoutDrafts(s.conversations) })),
 
   selectConversation: async (id) => {
-    set({ activeId: id, isSwitchingChat: true })
+    set((s) => ({
+      activeId: id,
+      isSwitchingChat: true,
+      conversations: withoutDrafts(s.conversations, id),
+    }))
     const existing = get().conversations.find((c) => c.id === id)
     if (existing) {
       await new Promise((resolve) => requestAnimationFrame(() => resolve(undefined)))
@@ -125,28 +137,25 @@ export const useChatStore = create<ChatState>((set, get) => ({
     }
   },
 
+  // Picking an agent only opens a draft; nothing is saved until the first message (saveDraft).
   createConversation: async (agentFilter) => {
     const id = nanoid()
-    const optimistic = emptyConversation(id, agentFilter)
     set((s) => ({
-      conversations: [optimistic, ...s.conversations],
+      conversations: [{ ...emptyConversation(id, agentFilter), draft: true }, ...withoutDrafts(s.conversations)],
       activeId: id,
     }))
-    try {
-      const conv = await createConversationApi(id, agentFilter)
-      set((s) => ({
-        conversations: s.conversations.map((c) =>
-          c.id === id ? { ...conv, messages: c.messages } : c
-        ),
-      }))
-    } catch {
-      set((s) => ({
-        conversations: s.conversations.filter((c) => c.id !== id),
-        activeId: s.activeId === id ? null : s.activeId,
-      }))
-      throw new Error('Failed to create conversation')
-    }
     return id
+  },
+
+  saveDraft: async (id) => {
+    const conv = get().conversations.find((c) => c.id === id)
+    if (!conv?.draft) return
+    const saved = await createConversationApi(id, conv.agentFilter as RoomAgentName)
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === id ? { ...saved, messages: c.messages, draft: false } : c
+      ),
+    }))
   },
 
   deleteConversation: async (id) => {
@@ -219,6 +228,16 @@ export const useChatStore = create<ChatState>((set, get) => ({
                 m.id === msgId ? { ...m, content: m.content + chunk } : m
               ),
             }
+          : c
+      ),
+    }))
+  },
+
+  replaceContent: (convId, msgId, content) => {
+    set((s) => ({
+      conversations: s.conversations.map((c) =>
+        c.id === convId
+          ? { ...c, messages: c.messages.map((m) => (m.id === msgId ? { ...m, content } : m)) }
           : c
       ),
     }))

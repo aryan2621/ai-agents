@@ -28,16 +28,9 @@ client_secret*.json
 secrets.json
 token.json
 
-# Local data
-*.db
-*.sqlite
-*.sqlite3
-backend/data/
-
 # Python sidecar
 backend/build
 backend/dist
-backend/*.spec
 backend/.venv
 backend/**/*/__pycache__
 __pycache__/

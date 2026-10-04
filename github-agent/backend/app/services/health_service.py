@@ -1,25 +1,22 @@
+import os
+
 import httpx
-from sqlalchemy import text
 
-from app.config import get_settings, is_sqlite_url
-from app.services.tavily_search import resolve_tavily_api_key
+from app.config import _app_data_dir
+from app.services import local_llm
 from app.services.app_config import oauth_is_configured
-from app.services.llm_keys import (
-    llm_provider_configured,
-    resolve_ollama_base_url,
-    ollama_is_reachable,
-)
-from app.db.database import async_session
+from app.services.llm_keys import llm_provider_configured
+from app.services.tavily_search import resolve_tavily_api_key
 
-BACKEND_BUILD_ID = "ollama-only-v8"
+BACKEND_BUILD_ID = "builtin-llm-v1"
 
 
-async def check_database() -> bool:
+def check_storage() -> bool:
+    """Chats and settings are JSON files in the data folder; it must be writable."""
     try:
-        async with async_session() as session:
-            await session.execute(text("SELECT 1"))
-        return True
-    except Exception:
+        path = _app_data_dir()
+        return path.is_dir() and os.access(path, os.W_OK)
+    except OSError:
         return False
 
 
@@ -32,30 +29,19 @@ async def check_network() -> bool:
         return False
 
 
-async def health_status(
-    user_ollama_url: str | None = None,
-) -> dict:
-    db_ok = await check_database()
+async def health_status() -> dict:
+    storage_ok = check_storage()
     network_ok = await check_network()
-    ollama_url = resolve_ollama_base_url(user_ollama_url)
-    ollama_ok = ollama_is_reachable(ollama_url)
-    llm_ok = llm_provider_configured(ollama_url)
+    llm_ok = llm_provider_configured()
 
     issues: list[dict[str, str]] = []
 
-    if not db_ok:
-        settings = get_settings()
-        if is_sqlite_url(settings.database_url):
-            remediation = "The local database could not be opened. Restart the app or check disk permissions."
-            message = "Local database is not available."
-        else:
-            remediation = "Start PostgreSQL and verify DATABASE_URL in backend/.env, or remove DATABASE_URL to use embedded SQLite."
-            message = "PostgreSQL is not reachable."
+    if not storage_ok:
         issues.append(
             {
                 "code": "database",
-                "message": message,
-                "remediation": remediation,
+                "message": "Chats and settings can't be saved.",
+                "remediation": f"Check that {_app_data_dir()} exists and is writable, then restart the app.",
             }
         )
     if not network_ok:
@@ -67,36 +53,38 @@ async def health_status(
             }
         )
     if not llm_ok:
+        runtime_missing = local_llm.server_binary() is None
         issues.append(
             {
                 "code": "llm",
-                "message": "Ollama is not running.",
+                "message": (
+                    "The built-in AI runtime is missing from this build."
+                    if runtime_missing
+                    else "No AI model is downloaded yet."
+                ),
                 "remediation": (
-                    f"Start Ollama at {ollama_url} and pull a model (e.g. ollama pull ministral-3:8b)."
+                    "Reinstall the app."
+                    if runtime_missing
+                    else "Download a model in Settings → Models (it runs on this Mac)."
                 ),
             }
         )
 
     ready = not issues
-    status = "ok" if ready else ("unhealthy" if not db_ok else "degraded")
+    status = "ok" if ready else ("unhealthy" if not storage_ok else "degraded")
 
     return {
         "status": status,
         "ready": ready,
         "issues": issues,
-        "capabilities": [
-            "ollama",
-        ],
+        "capabilities": ["llama.cpp"],
         "web_search_configured": bool(resolve_tavily_api_key()),
         "oauth_configured": oauth_is_configured(),
         "llm_configured": llm_ok,
-        "ollama_configured": ollama_ok,
-        "ollama_base_url": ollama_url,
         "build_id": BACKEND_BUILD_ID,
         "checks": {
-            "database": "ok" if db_ok else "error",
+            "database": "ok" if storage_ok else "error",
             "network": "ok" if network_ok else "error",
             "llm": "ok" if llm_ok else "error",
-            "ollama": "ok" if ollama_ok else "error",
         },
     }

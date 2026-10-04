@@ -23,7 +23,7 @@ export function SystemBlockedScreen({ loading, issues, onRetry }: Props) {
         <AlertCircle size={22} className="text-destructive" strokeWidth={iconStroke} />
       </div>
       <div className="text-center space-y-1 max-w-md">
-        <h2 className="text-app-display font-rounded text-foreground">App not ready</h2>
+        <h2 className="font-serif text-[2rem] leading-tight font-normal text-foreground">App not ready</h2>
         <p className="text-app-body text-muted-foreground">
           Fix the issues below before starting a conversation.
         </p>
@@ -32,7 +32,7 @@ export function SystemBlockedScreen({ loading, issues, onRetry }: Props) {
         {list.map((issue) => (
           <li
             key={issue.code}
-            className="rounded-xl border border-border bg-card px-4 py-3 text-left"
+            className="rounded-xl border border-border bg-popover px-4 py-3 text-left"
           >
             <p className="text-app-body text-foreground">{issue.message}</p>
             {issue.remediation ? (

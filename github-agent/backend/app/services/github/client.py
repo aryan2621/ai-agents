@@ -21,6 +21,32 @@ from app.services.github.support import (
 )
 
 
+# One keep-alive connection pool and login per GitHub token, shared by every chat, so a message
+# doesn't pay a fresh TLS handshake (and a /user lookup) before its first tool result.
+_http_clients: dict[str, httpx.Client] = {}
+_logins: dict[str, str] = {}
+
+
+def _http_client(token: str) -> httpx.Client:
+    client = _http_clients.get(token)
+    if client is None:
+        for old in _http_clients.values():
+            old.close()
+        _http_clients.clear()
+        client = httpx.Client(
+            base_url="https://api.github.com",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+                "X-GitHub-Api-Version": GITHUB_API_VERSION,
+                "User-Agent": "github-agent",
+            },
+            timeout=GITHUB_HTTP_TIMEOUT_SEC,
+        )
+        _http_clients[token] = client
+    return client
+
+
 class GitHubClients(ReposMixin, IssuesMixin, PullsMixin, ContentsMixin, NotificationsMixin):
     def __init__(
         self,
@@ -29,33 +55,25 @@ class GitHubClients(ReposMixin, IssuesMixin, PullsMixin, ContentsMixin, Notifica
     ) -> None:
         self._token = creds.github_access_token
         self._workspace_context = dict(workspace_context or {})
-        self._login = ""
-        self._http = httpx.Client(
-            base_url="https://api.github.com",
-            headers={
-                "Authorization": f"Bearer {self._token}",
-                "Accept": "application/vnd.github+json",
-                "X-GitHub-Api-Version": GITHUB_API_VERSION,
-                "User-Agent": "github-agent",
-            },
-            timeout=GITHUB_HTTP_TIMEOUT_SEC,
-        )
+        self._http = _http_client(self._token)
 
     @property
     def login(self) -> str:
-        if self._login:
-            return self._login
-        data = self._request("GET", "/user")
-        if isinstance(data, dict):
-            self._login = str(data.get("login") or "")
-        return self._login
+        login = _logins.get(self._token, "")
+        if not login:
+            data = self._request("GET", "/user")
+            if isinstance(data, dict):
+                login = str(data.get("login") or "")
+                _logins[self._token] = login
+        return login
 
     def get_me(self) -> str:
         data = self._request("GET", "/user")
         if not isinstance(data, dict):
             return tool_error("Could not load the signed-in GitHub user.")
         login = str(data.get("login") or "")
-        self._login = login or self._login
+        if login:
+            _logins[self._token] = login
         html = str(data.get("html_url") or "")
         name = str(data.get("name") or login)
         lines = [f"**[{login}]({html})**" if html else f"**{login}**"]

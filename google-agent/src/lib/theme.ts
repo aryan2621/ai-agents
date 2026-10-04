@@ -22,18 +22,6 @@ export function applyTheme(mode: ThemeMode) {
   }
 }
 
-export function getStoredTheme(): ThemeMode | null {
-  try {
-    const stored = localStorage.getItem(THEME_STORAGE_KEY)
-    if (stored === 'light' || stored === 'dark' || stored === 'system') {
-      return stored
-    }
-  } catch {
-    // ignore storage errors
-  }
-  return null
-}
-
 export const themeInitScript = `
 (function() {
   try {

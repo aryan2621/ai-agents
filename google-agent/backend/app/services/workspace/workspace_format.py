@@ -1,6 +1,6 @@
 import json
 
-from app.services.workspace.workspace_context import _parse_tool_payload, sanitize_workspace_context
+from app.services.workspace.workspace_context import sanitize_workspace_context
 
 
 def _format_resource_block(
@@ -152,32 +152,3 @@ def format_workspace_context(context: dict[str, str]) -> str:
         lines.append(f"- {key.replace('_', ' ')}: {value}")
 
     return "\n".join(lines)
-
-
-def format_sheet_markdown(read_result_json: str) -> str | None:
-    data = _parse_tool_payload(read_result_json)
-    if not data or data.get("status") != "ok":
-        return None
-    values = data.get("values")
-    if not isinstance(values, list) or not values:
-        return None
-
-    title = data.get("title", "Spreadsheet")
-    row_count = data.get("row_count", len(values))
-    data_rows = max(row_count - 1, len(values) - 1)
-    header = values[0]
-    col_count = len(header)
-    lines = [
-        f"**{title}** — {data_rows} data row(s) ({row_count} total including header)",
-        "",
-        _markdown_row(header),
-        _markdown_row(["---"] * col_count),
-    ]
-    for row in values[1:]:
-        cells = list(row) + [""] * max(0, col_count - len(row))
-        lines.append(_markdown_row(cells[:col_count]))
-    return "\n".join(lines)
-
-
-def _markdown_row(cells: list) -> str:
-    return "| " + " | ".join(str(cell) for cell in cells) + " |"

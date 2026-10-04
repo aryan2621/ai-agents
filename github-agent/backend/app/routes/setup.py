@@ -5,13 +5,9 @@ from app.services.app_config import (
     oauth_is_configured,
     resolve_github_credentials,
     save_oauth_credentials,
-    save_ollama_config,
 )
-from app.services.llm_keys import (
-    llm_provider_configured,
-    ollama_is_reachable,
-    resolve_ollama_base_url,
-)
+from app.services import local_llm
+from app.services.llm_keys import llm_provider_configured
 
 router = APIRouter(prefix="/setup", tags=["setup"])
 
@@ -26,15 +22,10 @@ class OAuthStatusResponse(BaseModel):
     clientIdPreview: str = ""
 
 
-class LlmSetupRequest(BaseModel):
-    ollamaBaseUrl: str = ""
-    defaultModel: str = ""
-
-
 class LlmStatusResponse(BaseModel):
     configured: bool
-    ollamaConfigured: bool
-    ollamaBaseUrl: str = ""
+    recommended: str = ""
+    installed: list[str] = Field(default_factory=list)
 
 
 @router.get("/oauth/status", response_model=OAuthStatusResponse)
@@ -60,30 +51,8 @@ async def save_oauth(body: OAuthSetupRequest):
 
 @router.get("/llm/status", response_model=LlmStatusResponse)
 async def llm_status():
-    ollama_url = resolve_ollama_base_url()
-    ollama = ollama_is_reachable(ollama_url)
     return LlmStatusResponse(
-        configured=llm_provider_configured(ollama_url),
-        ollamaConfigured=ollama,
-        ollamaBaseUrl=ollama_url,
+        configured=llm_provider_configured(),
+        recommended=local_llm.recommended(),
+        installed=local_llm.installed(),
     )
-
-
-@router.post("/llm")
-async def save_llm(body: LlmSetupRequest):
-    ollama_url = body.ollamaBaseUrl.strip()
-    model = body.defaultModel.strip()
-    if ollama_url or model:
-        save_ollama_config(base_url=ollama_url or None, model=model or None)
-    ollama_url = resolve_ollama_base_url(ollama_url or None)
-    if not llm_provider_configured(ollama_url):
-        raise HTTPException(
-            status_code=400,
-            detail="Start Ollama locally and pull a model.",
-        )
-    return {
-        "ok": True,
-        "message": "LLM settings saved.",
-        "configured": True,
-        "ollamaConfigured": ollama_is_reachable(ollama_url),
-    }

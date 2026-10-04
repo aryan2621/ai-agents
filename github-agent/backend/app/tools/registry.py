@@ -33,10 +33,7 @@ _TOOL_BUILDERS = {
 }
 
 
-def get_agent_prompt(
-    agent_name: AgentName, github: GitHubClients | None = None
-) -> str:
-    del github
+def get_agent_prompt(agent_name: AgentName) -> str:
     return AGENT_PROMPTS[agent_name]
 
 

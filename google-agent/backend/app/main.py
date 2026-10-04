@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 import logging
@@ -9,9 +10,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.db.database import engine, init_db
+from app.config import get_settings
+from app.db.database import get_store
+from app.services.platform import local_llm, parent_watch
 from app.middleware.request_logging import RequestLoggingMiddleware
-from app.routes import auth, chat, conversations, health, settings, setup, speech
+from app.routes import auth, chat, conversations, health, models, settings, setup, speech
 
 _env_path = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(_env_path)
@@ -35,7 +38,6 @@ def configure_logging() -> None:
         "uvicorn.error",
         "httpx",
         "httpcore",
-        "sqlalchemy.engine",
     ):
         logging.getLogger(name).setLevel(logging.WARNING)
     logging.getLogger("app.api").setLevel(logging.DEBUG if debug else logging.INFO)
@@ -48,13 +50,28 @@ def configure_logging() -> None:
 configure_logging()
 
 
+async def _warm_model() -> None:
+    """Load the model the user selected, and nothing else (no automatic pick)."""
+    chosen = next((s.default_model for s in get_store().settings.values() if s.default_model), "")
+    if not chosen or local_llm.model_path(chosen) is None:
+        return
+    try:
+        await local_llm.ensure_running(chosen)
+    except Exception as exc:  # chat will try again (and report) when it's used
+        logger.warning("Could not preload the AI model: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Google Agent backend started")
-    await init_db()
-    logger.info("Database initialized")
+    get_store()
+    logger.info("Storage ready")
+    parent_watch.start()
+    # Load the AI model now, so the first message doesn't wait for it.
+    warmup = asyncio.create_task(_warm_model())
     yield
-    await engine.dispose()
+    warmup.cancel()
+    await local_llm.stop()
 
 
 def create_app() -> FastAPI:
@@ -64,8 +81,8 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
+            f"http://localhost:{get_settings().ui_port}",  # next dev
+            f"http://127.0.0.1:{get_settings().ui_port}",
             "tauri://localhost",
             "https://tauri.localhost",
         ],
@@ -79,6 +96,7 @@ def create_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(conversations.router)
     app.include_router(settings.router)
+    app.include_router(models.router)
     app.include_router(chat.router)
     app.include_router(speech.router)
 

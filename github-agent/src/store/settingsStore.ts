@@ -3,8 +3,8 @@ import { fetchSettings, updateSettingsApi } from '@/lib/api'
 import { useReadinessStore } from '@/store/readinessStore'
 import type { Settings } from '@/types'
 
-const DEFAULT_LLM_MODEL = 'ministral-3:8b'
-const DEFAULT_OLLAMA_URL = 'http://127.0.0.1:11434'
+/** '' = automatic: the recommended built-in model that's downloaded. */
+const DEFAULT_LLM_MODEL = ''
 
 const DEFAULTS: Settings = {
   defaultModel: DEFAULT_LLM_MODEL,
@@ -16,7 +16,6 @@ const DEFAULTS: Settings = {
   theme: 'system',
   onboardingCompleted: false,
   tavilySearchApiKey: '',
-  ollamaBaseUrl: DEFAULT_OLLAMA_URL,
   agentOverrides: {
     repos: { enabled: true },
     issues: { enabled: true },
@@ -44,7 +43,6 @@ function normalizeSettings(settings: Settings): Settings {
   return {
     ...settings,
     defaultModel: settings.defaultModel?.trim() || DEFAULT_LLM_MODEL,
-    ollamaBaseUrl: settings.ollamaBaseUrl || DEFAULT_OLLAMA_URL,
     agentOverrides: normalizeAgentOverrides(settings.agentOverrides),
   }
 }
@@ -75,7 +73,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     const next = await updateSettingsApi(patch)
     const normalized = normalizeSettings({ ...DEFAULTS, ...next })
     set({ settings: normalized })
-    if (patch.ollamaBaseUrl !== undefined || patch.defaultModel !== undefined) {
+    if (patch.defaultModel !== undefined) {
       void useReadinessStore.getState().check({ silent: true })
     }
     return normalized

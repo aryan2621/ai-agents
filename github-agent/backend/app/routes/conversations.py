@@ -2,9 +2,8 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.db.database import get_db
+from app.db.database import Store, get_db
 from app.db.models import Conversation
 from app.models.chat import LLMSettings
 from app.services.conversation_service import (
@@ -15,7 +14,6 @@ from app.services.conversation_service import (
     delete_conversations,
     edit_user_message_and_truncate,
     get_conversation,
-    get_or_create_settings,
     list_conversations,
     rename_conversation,
     update_message,
@@ -32,7 +30,7 @@ def _extract_bearer(authorization: str | None) -> str:
     return authorization[7:]
 
 
-async def _get_user_id(session: AsyncSession, access_token: str) -> str:
+async def _get_user_id(session: Store, access_token: str) -> str:
     from app.services.auth_service import get_user_by_access_token
 
     row = await get_user_by_access_token(session, access_token)
@@ -112,7 +110,7 @@ def _conv_to_out(conv: Conversation) -> ConversationOut:
 @router.get("", response_model=list[ConversationOut])
 async def get_conversations(
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ) -> list[ConversationOut]:
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -124,7 +122,7 @@ async def get_conversations(
 async def get_conversation_route(
     conv_id: str,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ) -> ConversationOut:
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -138,7 +136,7 @@ async def get_conversation_route(
 async def post_conversation(
     body: CreateConversationRequest,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ) -> ConversationOut:
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -158,7 +156,7 @@ async def patch_conversation(
     conv_id: str,
     body: RenameRequest,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -176,7 +174,7 @@ class BulkDeleteRequest(BaseModel):
 async def bulk_delete_conversations(
     body: BulkDeleteRequest,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -188,7 +186,7 @@ async def bulk_delete_conversations(
 async def remove_conversation(
     conv_id: str,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -201,7 +199,7 @@ async def remove_conversation(
 @router.delete("")
 async def remove_all_conversations(
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -214,7 +212,7 @@ async def post_message(
     conv_id: str,
     body: CreateMessageRequest,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -238,7 +236,7 @@ async def patch_message(
     msg_id: str,
     body: UpdateMessageRequest,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -262,7 +260,7 @@ async def edit_message_and_truncate(
     msg_id: str,
     body: EditMessageRequest,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
@@ -279,15 +277,11 @@ async def generate_conversation_title_route(
     conv_id: str,
     body: GenerateTitleRequest,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     user_id = await _get_user_id(session, token)
-    user_settings = await get_or_create_settings(session, user_id)
-    from app.services.llm_keys import apply_keys_to_llm_settings
-
-    settings = apply_keys_to_llm_settings(body.settings, user_settings)
-    title = await generate_conversation_title(body.message, settings)
+    title = await generate_conversation_title(body.message, body.settings)
     conv = await rename_conversation(session, user_id, conv_id, title)
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")

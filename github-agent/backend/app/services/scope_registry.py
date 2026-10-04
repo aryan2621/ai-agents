@@ -77,10 +77,6 @@ def build_permission_statuses(granted_scopes: list[str]) -> list[PermissionStatu
     return statuses
 
 
-def missing_permissions(granted_scopes: list[str]) -> list[PermissionStatus]:
-    return [p for p in build_permission_statuses(granted_scopes) if not p.granted]
-
-
 def agent_scope(agent: str) -> str | None:
     return GITHUB_AGENT_SCOPES.get(agent)
 

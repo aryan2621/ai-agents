@@ -1,28 +1,13 @@
-OLLAMA_DEFAULT_MODEL = "qwen2.5:7b"
-DEFAULT_OLLAMA_BASE_URL = "http://127.0.0.1:11434"
-
-DEFAULT_LLM_MODEL = OLLAMA_DEFAULT_MODEL
-ROUTER_LLM_MODEL = OLLAMA_DEFAULT_MODEL
-SPECIALIST_LLM_MODEL = OLLAMA_DEFAULT_MODEL
-ROUTER_MAX_TOKENS = 512
-ROUTER_LLM_TEMPERATURE = 0.1
+# "" means automatic: the recommended installed built-in model (app.services.local_llm).
+DEFAULT_LLM_MODEL = ""
 SPECIALIST_MAX_TOKENS = 4096
-DEFAULT_LLM_TEMPERATURE = 0.4
 SPECIALIST_LLM_TEMPERATURE = 0.1
-SPECIALIST_LLM_TOP_P = 0.85
-SPECIALIST_REPEAT_PENALTY = 1.15
-
-_LEGACY_CLOUD_MODELS = {
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
-    "gemini-flash",
-    "llama-3.3-70b-versatile",
-    "llama-3.3-70b",
-}
 
 
 def normalize_llm_model(model: str) -> str:
-    name = model.strip()
-    if not name or name.lower().startswith("gemini") or name.lower() in _LEGACY_CLOUD_MODELS:
-        return DEFAULT_LLM_MODEL
-    return name
+    """A built-in model id, or "" (automatic). Names from older versions (Ollama tags, cloud
+    models) map to automatic."""
+    from app.services.platform.local_llm import model as catalog_model
+
+    name = (model or "").strip()
+    return name if catalog_model(name) is not None else ""

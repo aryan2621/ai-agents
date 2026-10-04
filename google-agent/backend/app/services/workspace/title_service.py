@@ -1,17 +1,27 @@
 import logging
 import re
 
-from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, HumanMessage
 
-from app.constants.models import ROUTER_MAX_TOKENS
-from app.graph.llm import build_chat_model
+from app.graph.llm import build_chat_model, ensure_model_running
 from app.models.chat import LLMSettings
 
 logger = logging.getLogger(__name__)
 
-TITLE_PROMPT = """You write short conversation titles for a Google Workspace AI assistant chat.
-Output ONLY the title text — no quotes, no punctuation at the end, no explanation.
-Use 3–6 words when possible. Max 60 characters. Be specific to the user's request."""
+
+# The request goes in the user turn, not a system prompt: given a list of rules as a system
+# prompt, Gemma writes out its plan ("User message: ... Constraint 1: ...") instead of a title.
+def _title_request(message: str) -> str:
+    return (
+        "Write a short title (3 to 6 words) for a chat that starts with this message:\n\n"
+        f"{message}\n\nReply with the title only."
+    )
+
+
+TITLE_EXAMPLES = [
+    ("Summarize my unread emails from this morning", "Unread email summary"),
+    ("what's on my calendar tomorrow?", "Tomorrow's calendar"),
+]
 
 
 def _fallback_title(message: str) -> str:
@@ -22,15 +32,26 @@ def _fallback_title(message: str) -> str:
     return snippet[:80]
 
 
-def _sanitize_title(raw: str) -> str:
-    title = raw.strip().strip('"\'').strip()
-    title = re.sub(r"^title:\s*", "", title, flags=re.I)
-    title = title.split("\n")[0].strip()
-    if title.endswith("."):
-        title = title[:-1].strip()
-    if not title or title.lower() == "new chat":
+def _sanitize_title(raw: str, message: str = "") -> str:
+    """The first line that looks like a title, without the list markers, labels or quotes a
+    model sometimes adds, skipping lines that just echo the message. Empty if there is none, or
+    if the model wrote out its reasoning ("User message: ...") instead of answering."""
+    if re.search(r"^\W*user message\s*:", raw, flags=re.I | re.M):
         return ""
-    return title[:80]
+    for line in raw.splitlines():
+        title = line.strip()
+        title = re.sub(r"^[\s*#>\-•\d.)]+", "", title)  # bullets, headings, numbering
+        title = title.replace("**", "").replace("`", "")
+        title = re.sub(r"^(title|chat title|input|user|message)\s*:\s*", "", title, flags=re.I)
+        title = title.strip().strip('"\'“”').strip()
+        if title.endswith("."):
+            title = title[:-1].strip()
+        if not title or title.lower() == "new chat":
+            continue
+        if message and title.lower().strip("?!. ") == message.lower().strip("?!. "):
+            continue  # an echo of the message, not a title
+        return title[:80]
+    return ""
 
 
 async def generate_conversation_title(message: str, settings: LLMSettings | None) -> str:
@@ -38,20 +59,16 @@ async def generate_conversation_title(message: str, settings: LLMSettings | None
     if not message:
         return _fallback_title(message)
 
-    model = build_chat_model(
-        settings,
-        temperature_override=0.3,
-        max_tokens_override=min(ROUTER_MAX_TOKENS, 48),
-        validate_model_on_init=False,
-    )
-
     try:
-        raw = await model.ainvoke([
-            SystemMessage(content=TITLE_PROMPT),
-            HumanMessage(content=message[:500]),
-        ])
+        await ensure_model_running(settings)
+        model = build_chat_model(settings, temperature=0.3, max_tokens=48)
+        prompt: list = []
+        for example, title in TITLE_EXAMPLES:
+            prompt += [HumanMessage(content=_title_request(example)), AIMessage(content=title)]
+        prompt.append(HumanMessage(content=_title_request(message[:500])))
+        raw = await model.ainvoke(prompt)
         content = raw.content if isinstance(raw.content, str) else str(raw.content)
-        title = _sanitize_title(content)
+        title = _sanitize_title(content, message)
         if title:
             return title
     except Exception:

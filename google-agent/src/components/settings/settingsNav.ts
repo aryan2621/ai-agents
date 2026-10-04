@@ -23,7 +23,7 @@ export type SettingsSectionId =
   | 'oauth'
   | 'account'
 
-export interface SettingsNavItem {
+interface SettingsNavItem {
   id: SettingsSectionId
   label: string
   description: string
@@ -31,7 +31,7 @@ export interface SettingsNavItem {
   component: ComponentType<{ onNavigateAway?: () => void }>
 }
 
-export interface SettingsNavGroup {
+interface SettingsNavGroup {
   label: string
   items: SettingsNavItem[]
 }
@@ -55,7 +55,7 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
       {
         id: 'models',
         label: 'Models',
-        description: 'Ollama local models for agent rooms',
+        description: 'The built-in AI that runs on this Mac',
         icon: Cpu,
         component: ModelsTab,
       },

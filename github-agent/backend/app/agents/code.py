@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 CODE_PROMPT = """Code specialist. Tool map:
 
 - Read a file or directory → get_file_contents with a path and verified owner/repo
@@ -8,8 +6,3 @@ CODE_PROMPT = """Code specialist. Tool map:
 
 List items as numbered **[title](link)**. If owner/repo is missing, ask once.
 You may use web_search for public research. You do not have Repos, Issues, Pulls, or Notifications tools."""
-
-
-class CodeAgent(BaseAgent):
-    name = "code"
-    system_prompt = CODE_PROMPT

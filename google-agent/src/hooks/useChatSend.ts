@@ -5,7 +5,6 @@ import { nanoid } from 'nanoid'
 import { toast } from 'sonner'
 import { useChatStore } from '@/store/chatStore'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
-import { chatPreflightApi } from '@/lib/api'
 import { getAgentLabel, isRoomAgent, type RoomAgentName } from '@/lib/agents'
 import { streamChat, describeStreamFailure } from '@/lib/streaming'
 import type { AgentName, PermissionError, Settings } from '@/types'
@@ -34,37 +33,28 @@ export function useChatSend({
   const {
     addMessage,
     appendChunk,
+    replaceContent,
     finalizeMessage,
     editMessageAndTruncate,
     setGenerating,
     generateConversationTitle,
+    saveDraft,
   } = useChatStore()
   const { signInWithGoogle } = useGoogleAuth()
   const [oauthPermissionError, setOauthPermissionError] = useState<PermissionError | null>(null)
   const [isReauthing, setIsReauthing] = useState(false)
   const pendingAfterOAuthRef = useRef<PendingOAuthRetry | null>(null)
 
-  const appendUserMessage = async (text: string, convId: string | null) => {
-    let targetId = convId
-    if (!targetId) {
-      throw new Error('Select an agent to start a chat')
-    }
-
-    const convBefore = useChatStore.getState().conversations.find((c) => c.id === targetId)
-    const isFirstMessage = !convBefore || convBefore.messages.length === 0
-
-    addMessage(targetId, {
+  /** Adds the user's message; returns whether the chat still needs a title. */
+  const appendUserMessage = (text: string, convId: string) => {
+    const convBefore = useChatStore.getState().conversations.find((c) => c.id === convId)
+    addMessage(convId, {
       id: nanoid(),
       role: 'user',
       content: text,
       timestamp: new Date(),
     })
-
-    if (isFirstMessage || convBefore?.title === 'New Chat') {
-      void generateConversationTitle(targetId, text, settings)
-    }
-
-    return targetId
+    return !convBefore || convBefore.messages.length === 0 || convBefore.title === 'New Chat'
   }
 
   const buildHistory = (convId: string, excludeLastUserMessage = false) => {
@@ -116,6 +106,7 @@ export function useChatSend({
           setAssistantAgent(convId, assistantMsgId, resolvedAgent)
         }
       },
+      onReplace: (content) => replaceContent(convId, assistantMsgId, content),
       onDone: async () => {
         const conv = useChatStore.getState().conversations.find((c) => c.id === convId)
         const msg = conv?.messages.find((m) => m.id === assistantMsgId)
@@ -155,7 +146,7 @@ export function useChatSend({
   ) => {
     const convId = options?.convId ?? activeId
     if (!convId) {
-      toast.error('Select an agent to start a chat')
+      toast.error('Start a new chat first')
       return
     }
     const conv = useChatStore.getState().conversations.find((c) => c.id === convId)
@@ -165,9 +156,8 @@ export function useChatSend({
       return
     }
 
-    if (!options?.skipUserMessage) {
-      await appendUserMessage(text, convId)
-    }
+    await saveDraft(convId)
+    const needsTitle = !options?.skipUserMessage && appendUserMessage(text, convId)
 
     const assistantMsgId = nanoid()
     addMessage(convId, {
@@ -179,8 +169,11 @@ export function useChatSend({
     })
     setGenerating(true)
 
-    const history = buildHistory(convId, Boolean(options?.skipUserMessage))
+    const history = buildHistory(convId, true)
     await runStream(convId, text, assistantMsgId, history, locked)
+    // After the reply: the local model answers one request at a time, so a title request
+    // sent alongside the message would make the reply wait for it.
+    if (needsTitle) void generateConversationTitle(convId, text, settings)
   }
 
   const handleEditResend = async (messageId: string, newText: string) => {
@@ -193,39 +186,7 @@ export function useChatSend({
 
     try {
       await editMessageAndTruncate(activeId, messageId, newText)
-
-      const preflight = await chatPreflightApi(
-        newText,
-        roomAgent,
-        settings,
-        activeId
-      )
-
-      if (!preflight.oauthGranted) {
-        pendingAfterOAuthRef.current = {
-          text: newText,
-          convId: activeId,
-          skipUserMessage: true,
-        }
-        setOauthPermissionError({
-          code: 'INSUFFICIENT_SCOPE',
-          agent: preflight.agent,
-          scope: preflight.scope ?? '',
-          label: preflight.label,
-          message: `${preflight.label} permission was not granted in Google. Re-authenticate to grant access.`,
-        })
-        return
-      }
-
-      if (!preflight.webSearchConfigured) {
-        toast.error('Add your Tavily API key in Settings → Web Search')
-        return
-      }
-
-      await sendMessage(newText, {
-        skipUserMessage: true,
-        convId: activeId,
-      })
+      await sendMessage(newText, { skipUserMessage: true, convId: activeId })
     } catch (err) {
       toast.error(describeStreamFailure(err))
     }
@@ -247,67 +208,14 @@ export function useChatSend({
       return
     }
 
-    const targetId = await appendUserMessage(text, convId)
-    const assistantMsgId = nanoid()
-    addMessage(targetId, {
-      id: assistantMsgId,
-      role: 'assistant',
-      content: '',
-      isStreaming: true,
-      timestamp: new Date(),
-    })
-    setGenerating(true)
-
+    if (!convId) {
+      toast.error('Start a new chat first')
+      return
+    }
     try {
-      const preflight = await chatPreflightApi(
-        text,
-        locked,
-        settings,
-        targetId
-      )
-
-      if (!preflight.oauthGranted) {
-        pendingAfterOAuthRef.current = {
-          text,
-          convId: targetId,
-          skipUserMessage: true,
-        }
-        setOauthPermissionError({
-          code: 'INSUFFICIENT_SCOPE',
-          agent: preflight.agent,
-          scope: preflight.scope ?? '',
-          label: preflight.label,
-          message: `${preflight.label} permission was not granted in Google. Re-authenticate to grant access.`,
-        })
-        await finalizeMessage(
-          targetId,
-          assistantMsgId,
-          preflight.agent as AgentName,
-          `${preflight.label} permission was not granted.`
-        )
-        setGenerating(false)
-        return
-      }
-
-      if (!preflight.webSearchConfigured) {
-        toast.error('Add your Tavily API key in Settings → Web Search')
-        await finalizeMessage(
-          targetId,
-          assistantMsgId,
-          'web',
-          'Tavily API key is not configured. Add it in Settings → Web Search.'
-        )
-        setGenerating(false)
-        return
-      }
-
-      const history = buildHistory(targetId, true)
-      setAssistantAgent(targetId, assistantMsgId, preflight.agent as AgentName)
-      await runStream(targetId, text, assistantMsgId, history, locked)
+      await sendMessage(text, { convId })
     } catch (err) {
-      const message = describeStreamFailure(err)
-      toast.error(message)
-      await finalizeMessage(targetId, assistantMsgId, undefined, message)
+      toast.error(describeStreamFailure(err))
       setGenerating(false)
     }
   }
@@ -323,18 +231,6 @@ export function useChatSend({
       const pending = pendingAfterOAuthRef.current
       pendingAfterOAuthRef.current = null
       if (!pending) return
-
-      const preflight = await chatPreflightApi(
-        pending.text,
-        roomAgent ?? undefined,
-        settings,
-        pending.convId
-      )
-
-      if (!preflight.oauthGranted) {
-        toast.error(`${preflight.label} permission is still not granted`)
-        return
-      }
 
       await sendMessage(pending.text, {
         skipUserMessage: pending.skipUserMessage,

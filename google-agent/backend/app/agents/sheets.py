@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 SHEETS_PROMPT = """Sheets specialist. Tool map:
 
 - Active sheet in context → read_sheet_data before edits; append_rows to add; update_sheet_data to replace the table
@@ -11,8 +9,3 @@ SHEETS_PROMPT = """Sheets specialist. Tool map:
 
 List as numbered **[title](spreadsheetUrl or webViewLink)**.
 You may use web_search for public research. You do not have Gmail, Calendar, Drive, or Docs tools."""
-
-
-class SheetsAgent(BaseAgent):
-    name = "sheets"
-    system_prompt = SHEETS_PROMPT

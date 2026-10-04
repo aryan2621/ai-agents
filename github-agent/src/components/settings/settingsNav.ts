@@ -55,7 +55,7 @@ export const SETTINGS_NAV_GROUPS: SettingsNavGroup[] = [
       {
         id: 'models',
         label: 'Models',
-        description: 'Ollama local models for agent rooms',
+        description: 'The built-in AI that runs on this Mac',
         icon: Cpu,
         component: ModelsTab,
       },

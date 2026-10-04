@@ -1,6 +1,4 @@
-from typing import Literal, TypeAlias, TypedDict
-
-from app.types.tools import AgentTool
+from typing import Literal, TypeAlias
 
 AgentName: TypeAlias = Literal[
     "gmail",
@@ -11,15 +9,6 @@ AgentName: TypeAlias = Literal[
     "web",
 ]
 
-VALID_AGENT_NAMES: frozenset[AgentName] = frozenset({
-    "gmail",
-    "calendar",
-    "drive",
-    "docs",
-    "sheets",
-    "web",
-})
-
 ROOM_AGENT_NAMES: tuple[AgentName, ...] = (
     "gmail",
     "calendar",
@@ -28,8 +17,6 @@ ROOM_AGENT_NAMES: tuple[AgentName, ...] = (
     "sheets",
     "web",
 )
-
-SPECIALIST_AGENT_NAMES: tuple[AgentName, ...] = ROOM_AGENT_NAMES
 
 GOOGLE_ROOM_AGENT_NAMES: tuple[AgentName, ...] = (
     "gmail",
@@ -50,11 +37,3 @@ AGENT_DISABLED = "This agent is disabled in Settings."
 
 def is_room_agent(name: str | None) -> bool:
     return name in ROOM_AGENT_NAMES
-
-
-AgentToolsMap: TypeAlias = dict[str, AgentTool]
-
-
-class RoutingDecision(TypedDict, total=False):
-    agent: str
-    reason: str

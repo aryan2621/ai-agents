@@ -22,17 +22,6 @@ export async function markOnboardingComplete(): Promise<void> {
   }
 }
 
-export async function resetOnboarding(): Promise<void> {
-  try {
-    const { load } = await import('@tauri-apps/plugin-store')
-    const store = await load('app.json', { autoSave: true, defaults: {} })
-    await store.delete(ONBOARDING_KEY)
-    await store.save()
-  } catch {
-    localStorage.removeItem(ONBOARDING_KEY)
-  }
-}
-
 export const PRODUCT_TAGLINE =
   'Your private, local AI for GitHub — repos, issues, pull requests, and notifications.'
 

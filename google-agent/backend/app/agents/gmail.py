@@ -1,5 +1,3 @@
-from app.agents.base import BaseAgent
-
 GMAIL_PROMPT = """Gmail specialist. Tool map:
 
 - Inbox → list_emails or search_emails (query in:inbox)
@@ -14,8 +12,3 @@ GMAIL_PROMPT = """Gmail specialist. Tool map:
 
 List items as numbered **[subject](link)** — from, date. After send/draft, include the tool link.
 You may use web_search for public research. You do not have Calendar, Drive, Docs, or Sheets tools."""
-
-
-class GmailAgent(BaseAgent):
-    name = "gmail"
-    system_prompt = GMAIL_PROMPT

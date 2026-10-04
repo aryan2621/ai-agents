@@ -18,7 +18,7 @@ export function SettingsSection({
     <section className={cn('space-y-4', className)}>
       {(title || description) && (
         <div className="space-y-1">
-          {title && <h3 className="text-app-body font-medium text-foreground">{title}</h3>}
+          {title && <h3 className="text-sm font-semibold text-foreground">{title}</h3>}
           {description && (
             <p className="text-app-caption text-muted-foreground leading-relaxed">{description}</p>
           )}
@@ -37,7 +37,7 @@ export function SettingsCard({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-xl border border-border bg-background divide-y divide-border', className)}>
+    <div className={cn('rounded-xl border border-border bg-popover divide-y divide-border', className)}>
       {children}
     </div>
   )
@@ -62,18 +62,14 @@ export function SettingsRow({
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="text-app-body text-foreground">{label}</p>
+        <p className="text-sm text-foreground">{label}</p>
         {description && (
-          <p className="text-app-caption text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
         )}
       </div>
       <div className="shrink-0">{children}</div>
     </div>
   )
-}
-
-export function SettingsDivider() {
-  return <div className="border-t border-border" />
 }
 
 export function SegmentedControl<T extends string>({
@@ -101,7 +97,7 @@ export function SegmentedControl<T extends string>({
           type="button"
           onClick={() => onChange(option.value)}
           className={cn(
-            'px-3 py-1.5 rounded-md text-app-caption font-medium transition-colors duration-fast',
+            'px-3 h-7 rounded-md text-sm font-medium transition-colors duration-fast',
             value === option.value
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'
@@ -122,8 +118,8 @@ export function SettingsStatusBadge({
   children: ReactNode
 }) {
   const styles = {
-    success: 'text-green-600 dark:text-green-500 bg-green-500/10 border-green-500/20',
-    warning: 'text-amber-600 dark:text-amber-500 bg-amber-500/10 border-amber-500/20',
+    success: 'text-success bg-success/10 border-success/20',
+    warning: 'text-warning bg-warning/10 border-warning/20',
     error: 'text-destructive bg-destructive/10 border-destructive/20',
     neutral: 'text-muted-foreground bg-muted border-border',
   }

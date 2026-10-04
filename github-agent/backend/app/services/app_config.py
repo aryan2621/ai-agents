@@ -38,22 +38,6 @@ def save_oauth_credentials(client_id: str, client_secret: str) -> Path:
     return path
 
 
-def save_ollama_config(
-    *,
-    base_url: str | None = None,
-    model: str | None = None,
-) -> Path:
-    path = _config_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    existing = load_app_config()
-    if base_url is not None:
-        existing["OLLAMA_BASE_URL"] = base_url.strip()
-    if model is not None:
-        existing["DEFAULT_MODEL"] = model.strip()
-    path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
-    return path
-
-
 def resolve_github_credentials() -> tuple[str, str]:
     config = load_app_config()
     settings = get_settings()

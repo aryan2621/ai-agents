@@ -165,10 +165,10 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-6 group">
-        <div className="max-w-[85%] w-full flex flex-col items-end gap-2">
+      <div className="flex justify-end mb-8 group">
+        <div className="max-w-[80%] w-full flex flex-col items-end gap-1.5">
           {isEditing ? (
-            <div className="w-full bg-card border border-border rounded-3xl p-3 space-y-3">
+            <div className="w-full bg-popover border border-border rounded-2xl p-3 space-y-3">
               <Textarea
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
@@ -209,7 +209,7 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
             </div>
           ) : (
             <>
-              <div className="bg-card text-foreground rounded-3xl px-4 py-3 text-app-body leading-relaxed">
+              <div className="bg-card text-foreground rounded-2xl px-4 py-2.5 text-app-body leading-relaxed whitespace-pre-wrap">
                 {message.content}
               </div>
               {!disabled && onEditResend && (
@@ -217,7 +217,7 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
                   <button
                     type="button"
                     onClick={copy}
-                    className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
                     aria-label="Copy message"
                   >
                     <Copy size={13} className={iconClass} strokeWidth={iconStroke} />
@@ -225,7 +225,7 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
                   <button
                     type="button"
                     onClick={startEdit}
-                    className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
+                    className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
                     aria-label="Edit message"
                   >
                     <Pencil size={13} className={iconClass} strokeWidth={iconStroke} />
@@ -247,17 +247,17 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
   return (
     <div className="mb-8 group">
       {agentLabel ? (
-        <p className="text-app-caption text-muted-foreground mb-2">{agentLabel}</p>
+        <p className="text-xs font-medium text-muted-foreground mb-1.5">{agentLabel}</p>
       ) : null}
       {showLoader ? (
         <MessageLoader label={loaderLabel} />
       ) : (
         <div
-          className={`prose prose-neutral dark:prose-invert ${proseClass} max-w-none text-foreground leading-relaxed font-sans
+          className={`prose prose-neutral dark:prose-invert ${proseClass} max-w-none text-foreground leading-relaxed font-serif
           prose-code:bg-card prose-code:border prose-code:border-border prose-code:rounded prose-code:px-1 prose-code:font-mono prose-code:text-foreground
           prose-pre:bg-card prose-pre:border prose-pre:border-border prose-pre:font-mono prose-pre:text-foreground
-          prose-headings:font-rounded prose-headings:font-medium prose-headings:text-foreground
-          prose-a:text-foreground prose-a:underline
+          prose-headings:font-serif prose-headings:font-medium prose-headings:text-foreground
+          prose-a:text-brand prose-a:underline prose-a:underline-offset-2
           prose-blockquote:border-border prose-blockquote:text-muted-foreground
           prose-table:text-foreground prose-th:text-foreground prose-td:text-foreground`}
         >
@@ -279,7 +279,7 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
                 const rows = parsePipeTable(rawText)
                 if (rows) return <MessageTable rows={rows} />
                 return (
-                  <pre className="overflow-x-auto rounded-lg border border-border bg-card p-3 text-foreground">
+                  <pre className="overflow-x-auto rounded-xl border border-border bg-card px-4 py-3 text-[13px] leading-relaxed text-foreground">
                     {children}
                   </pre>
                 )
@@ -318,7 +318,7 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
             <button
               type="button"
               onClick={handleListen}
-              className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
+              className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
               aria-label={isSpeaking ? 'Stop reading aloud' : 'Read aloud'}
             >
               {isSpeaking ? (
@@ -331,7 +331,7 @@ export function MessageBubble({ message, disabled, onEditResend }: Props) {
           <button
             type="button"
             onClick={copy}
-            className="p-1.5 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
+            className="h-7 w-7 inline-flex items-center justify-center rounded-md hover:bg-accent text-muted-foreground hover:text-foreground transition-colors duration-fast"
             aria-label="Copy message"
           >
             <Copy size={13} className={iconClass} strokeWidth={iconStroke} />

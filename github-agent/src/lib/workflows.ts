@@ -28,7 +28,7 @@ export const STARTER_PROMPTS = [
   },
 ] as const
 
-export const ROOM_STARTER_PROMPTS: Record<
+const ROOM_STARTER_PROMPTS: Record<
   RoomAgentName,
   { id: string; title: string; prompt: string }[]
 > = {

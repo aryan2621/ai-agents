@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 
-export type MainView = 'chats'
-export type ChatsSubview = 'list' | 'chat'
+type MainView = 'chats'
+type ChatsSubview = 'list' | 'chat'
 
 const SIDEBAR_COLLAPSED_KEY = 'google-agent.sidebar-collapsed'
 

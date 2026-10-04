@@ -17,17 +17,24 @@ import logging
 logger = logging.getLogger("app.google")
 
 
+# The primary calendar's time zone by access token: fetched once, not on every chat message.
+_calendar_timezones: dict[str, str] = {}
+
+
 class CalendarMixin:
     def _get_calendar_timezone(self) -> str:
-        if self._calendar_tz:
-            return self._calendar_tz
+        cached = _calendar_timezones.get(self._token)
+        if cached:
+            return cached
         try:
             cal = self._calendar.calendars().get(calendarId="primary").execute()
-            self._calendar_tz = cal.get("timeZone") or "UTC"
+            tz_name = cal.get("timeZone") or "UTC"
         except Exception:
             logger.warning("Could not fetch calendar timezone; defaulting to UTC")
-            self._calendar_tz = "UTC"
-        return self._calendar_tz
+            return "UTC"
+        _calendar_timezones.clear()  # only the current token's is needed
+        _calendar_timezones[self._token] = tz_name
+        return tz_name
 
     def _parse_calendar_datetime(self, value: str) -> datetime:
         """Parse ISO 8601; naive values use the user's primary calendar timezone."""

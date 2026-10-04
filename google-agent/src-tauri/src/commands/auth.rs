@@ -1,12 +1,11 @@
 use std::time::Duration;
 
 use tauri::command;
-use tauri::{AppHandle, Manager};
+use tauri::AppHandle;
 use tauri_plugin_opener::OpenerExt;
 
-const BACKEND_AUTH_URL: &str = "http://127.0.0.1:8000/auth/google/url";
-const OAUTH_BEGIN_URL: &str = "http://127.0.0.1:8000/auth/google/begin";
-const OAUTH_REDIRECT_URI: &str = "http://127.0.0.1:8000/auth/google/callback";
+const BACKEND_AUTH_URL: &str = concat!("http://127.0.0.1:", env!("BACKEND_PORT"), "/auth/google/url");
+const OAUTH_BEGIN_URL: &str = concat!("http://127.0.0.1:", env!("BACKEND_PORT"), "/auth/google/begin");
 const BACKEND_STARTUP_ATTEMPTS: u32 = 120;
 const BACKEND_RETRY_DELAY_MS: u64 = 500;
 
@@ -91,37 +90,4 @@ pub async fn start_google_auth(app: tauri::AppHandle) -> Result<String, String> 
     open_auth_url(&app, &begin_url)?;
 
     Ok(auth_start.state)
-}
-
-#[command]
-pub async fn handle_oauth_callback(code: String) -> Result<serde_json::Value, String> {
-    let client = reqwest::Client::new();
-    let response = client
-        .post("http://127.0.0.1:8000/auth/google/callback")
-        .json(&serde_json::json!({
-            "code": code,
-            "redirect_uri": OAUTH_REDIRECT_URI
-        }))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("Token exchange failed ({}): {}", status, body));
-    }
-
-    let tokens: serde_json::Value = response.json().await.map_err(|e| e.to_string())?;
-    Ok(tokens)
-}
-
-#[command]
-pub async fn focus_main_window(app: tauri::AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        window.unminimize().map_err(|e| e.to_string())?;
-        window.show().map_err(|e| e.to_string())?;
-        window.set_focus().map_err(|e| e.to_string())?;
-    }
-    Ok(())
 }

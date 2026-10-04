@@ -11,16 +11,6 @@
     "shell:allow-kill",
     "shell:allow-stdin-write",
     "shell:allow-spawn",
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "binaries/python-backend",
-          "sidecar": true,
-          "args": true
-        }
-      ]
-    },
     "store:allow-get",
     "store:allow-set",
     "store:allow-delete",

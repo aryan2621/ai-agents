@@ -4,10 +4,9 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from fastapi.responses import HTMLResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.platform.app_config import oauth_is_configured, resolve_google_credentials
-from app.db.database import get_db
+from app.services.platform.app_config import resolve_google_credentials
+from app.db.database import Store, get_db
 from app.models.auth import GoogleUserResponse
 from app.services.auth.auth_service import delete_user_session, get_user_by_access_token, to_user_response
 from app.services.auth.token_crypto import decrypt_token
@@ -253,7 +252,7 @@ async def google_browser_callback(
     code: str | None = None,
     error: str | None = None,
     state: str | None = None,
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     """Browser redirect target; completes auth and shows a success page."""
     if not state or oauth_pending.get(state) is None:
@@ -305,7 +304,7 @@ async def google_browser_callback(
 @router.get("/me", response_model=GoogleUserResponse)
 async def get_me(
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     access_token = _extract_bearer(authorization)
     row = await get_user_by_access_token(session, access_token)
@@ -317,7 +316,6 @@ async def get_me(
         if picture:
             user.picture = picture
             await session.commit()
-            await session.refresh(user)
     from app.services.auth.auth_service import StoredCredentials
 
     return to_user_response(
@@ -338,7 +336,7 @@ async def get_me(
 @router.post("/logout")
 async def logout(
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     access_token = _extract_bearer(authorization)
     await delete_user_session(session, access_token)

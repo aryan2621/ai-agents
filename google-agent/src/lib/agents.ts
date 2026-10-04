@@ -2,7 +2,7 @@ import type { AgentName } from '@/types'
 
 export type RoomAgentName = AgentName
 
-export const AGENT_LABELS: Record<AgentName, string> = {
+const AGENT_LABELS: Record<AgentName, string> = {
   gmail: 'Gmail',
   calendar: 'Google Calendar',
   drive: 'Google Drive',

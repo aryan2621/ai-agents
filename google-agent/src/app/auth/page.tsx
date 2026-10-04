@@ -59,7 +59,7 @@ export default function AuthPage() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 min-h-0 flex items-center justify-center bg-[hsl(var(--gray-50))] dark:bg-background">
+      <div className="flex-1 min-h-0 flex items-center justify-center bg-background">
         <div className="w-5 h-5 border-2 border-muted border-t-muted-foreground rounded-full animate-spin" />
       </div>
     )
@@ -69,12 +69,9 @@ export default function AuthPage() {
   const signInDisabled = isSigningIn || isBackendStarting
 
   return (
-    <div className="relative flex-1 min-h-0 bg-[hsl(var(--gray-50))] dark:bg-background overflow-hidden">
-      <div className="absolute inset-0 opacity-[0.07] dark:opacity-[0.12] pointer-events-none">
-        <Image src="/hero.png" alt="" fill className="object-cover" priority />
-      </div>
+    <div className="relative flex-1 min-h-0 bg-background overflow-hidden">
       <div className="relative h-full flex items-center justify-center px-4">
-        <div className="w-full max-w-[400px] bg-background border border-border rounded-xl px-8 py-10 flex flex-col items-center gap-6 shadow-sm text-center">
+        <div className="w-full max-w-[380px] px-2 py-10 flex flex-col items-center gap-7 text-center">
           <Image
             src="/app-icon.png"
             alt="Google Agent"
@@ -85,7 +82,7 @@ export default function AuthPage() {
           />
 
           <div className="space-y-2">
-            <h1 className="text-app-heading font-rounded font-medium text-foreground">
+            <h1 className="font-serif text-[2.25rem] leading-tight font-normal text-foreground">
               {PRODUCT_NAME}
             </h1>
             <p className="text-app-body text-muted-foreground leading-relaxed">
@@ -94,13 +91,13 @@ export default function AuthPage() {
           </div>
 
           <div className="w-full space-y-4">
-            <p className="text-app-body font-medium text-foreground">Sign in</p>
+            <p className="text-sm font-medium text-muted-foreground">Sign in</p>
 
             <Button
               onClick={handleGoogleLogin}
               disabled={signInDisabled}
               variant="outline"
-              className="w-full h-11 rounded-lg bg-background hover:bg-muted/60 text-foreground border-border font-normal gap-3 justify-center px-4"
+              className="w-full h-11 rounded-xl bg-popover hover:bg-accent text-foreground border-border font-medium gap-3 justify-center px-4 shadow-[0_1px_2px_hsl(var(--foreground)/0.05)]"
             >
               <GoogleIcon />
               {isSigningIn

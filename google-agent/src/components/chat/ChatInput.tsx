@@ -7,7 +7,7 @@ import { useSpeechToText } from '@/hooks/useSpeechToText'
 import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 
-const MAX_COMPOSER_HEIGHT = 128
+const MAX_COMPOSER_HEIGHT = 240
 
 interface Props {
   onSend: (text: string) => void
@@ -17,6 +17,8 @@ interface Props {
   disabled?: boolean
   checking?: boolean
   placeholder?: string
+  /** Shown at the bottom left, like the model picker in Claude's composer. */
+  contextLabel?: string | null
 }
 
 function resizeComposer(el: HTMLTextAreaElement | null) {
@@ -34,6 +36,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, Props>(function ChatInp
     disabled = false,
     checking = false,
     placeholder,
+    contextLabel,
   },
   ref
 ) {
@@ -73,7 +76,7 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, Props>(function ChatInp
   }
 
   return (
-    <div className="flex items-end gap-1 rounded-2xl border border-border bg-card px-2 py-1.5 focus-within:border-muted-foreground transition-colors duration-fast">
+    <div className="rounded-2xl border border-border bg-popover shadow-[0_4px_20px_hsl(var(--foreground)/0.06)] focus-within:border-input transition-colors duration-fast">
       <Textarea
         ref={setRefs}
         value={value}
@@ -91,64 +94,70 @@ export const ChatInput = forwardRef<HTMLTextAreaElement, Props>(function ChatInp
         }
         rows={1}
         disabled={inputLocked}
-        className="min-h-[2.25rem] max-h-32 resize-none border-0 bg-transparent rounded-none px-2 py-1.5 text-app-body leading-snug focus-visible:ring-0 shadow-none scrollbar-none font-sans"
+        className="min-h-[3.25rem] max-h-60 resize-none border-0 bg-transparent rounded-none px-4 pt-3.5 pb-1 text-app-body leading-relaxed focus-visible:ring-0 shadow-none scrollbar-none font-sans placeholder:text-muted-foreground"
       />
-      {micSupported && (
+      <div className="flex items-center gap-1 px-2.5 pb-2.5">
+        <div className="flex-1 min-w-0">
+          {contextLabel ? (
+            <span className="inline-flex items-center h-7 px-2.5 rounded-lg text-xs text-muted-foreground truncate max-w-full">
+              {contextLabel}
+            </span>
+          ) : null}
+        </div>
+        {micSupported && (
+          <button
+            type="button"
+            onClick={toggleMic}
+            disabled={inputLocked || transcribing}
+            className={cn(
+              'relative shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-fast disabled:opacity-50 disabled:pointer-events-none',
+              transcribing
+                ? 'text-muted-foreground'
+                : listening
+                  ? 'bg-destructive/15 text-destructive animate-recording-pulse'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            )}
+            aria-label={
+              transcribing ? 'Transcribing speech' : listening ? 'Stop recording' : 'Start voice input'
+            }
+            aria-pressed={listening}
+          >
+            {listening && (
+              <span
+                className="pointer-events-none absolute inset-0 rounded-full bg-destructive/20 animate-ping"
+                aria-hidden
+              />
+            )}
+            <span className="relative z-10 flex items-center justify-center">
+              {transcribing ? (
+                <Loader2 size={16} strokeWidth={iconStroke} className="animate-spin" />
+              ) : listening ? (
+                <AudioLines size={16} strokeWidth={iconStroke} className="animate-pulse" />
+              ) : (
+                <Mic size={16} strokeWidth={iconStroke} />
+              )}
+            </span>
+          </button>
+        )}
         <button
           type="button"
-          onClick={toggleMic}
-          disabled={inputLocked || transcribing}
+          onClick={isGenerating ? onStop : handleSend}
+          disabled={(!value.trim() && !isGenerating) || isAwaitingApproval}
+          aria-label={isGenerating ? 'Stop' : 'Send message'}
           className={cn(
-            'relative shrink-0 w-8 h-8 mb-0.5 rounded-full flex items-center justify-center transition-all duration-fast disabled:opacity-50 disabled:pointer-events-none',
-            transcribing
-              ? 'text-muted-foreground'
-              : listening
-                ? 'bg-destructive/15 text-destructive animate-recording-pulse'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            'shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-all duration-fast',
+            value.trim() || isGenerating
+              ? 'bg-brand text-brand-foreground hover:bg-brand/90 cursor-pointer'
+              : 'bg-brand/40 text-brand-foreground cursor-not-allowed'
           )}
-          aria-label={
-            transcribing
-              ? 'Transcribing speech'
-              : listening
-                ? 'Stop recording'
-                : 'Start voice input'
-          }
-          aria-pressed={listening}
         >
-          {listening && (
-            <span
-              className="pointer-events-none absolute inset-0 rounded-full bg-destructive/20 animate-ping"
-              aria-hidden
-            />
+          {isGenerating ? (
+            <Square size={13} className="fill-current" strokeWidth={iconStroke} />
+          ) : (
+            <ArrowUp size={16} strokeWidth={2} />
           )}
-          <span className="relative z-10 flex items-center justify-center">
-            {transcribing ? (
-              <Loader2 size={16} strokeWidth={iconStroke} className="animate-spin" />
-            ) : listening ? (
-              <AudioLines size={16} strokeWidth={iconStroke} className="animate-pulse" />
-            ) : (
-              <Mic size={16} strokeWidth={iconStroke} />
-            )}
-          </span>
         </button>
-      )}
-
-      <button
-        type="button"
-        onClick={isGenerating ? onStop : handleSend}
-        disabled={(!value.trim() && !isGenerating) || isAwaitingApproval}
-        className={`shrink-0 w-8 h-8 mb-0.5 rounded-full flex items-center justify-center transition-all duration-fast ${
-          value.trim() || isGenerating
-            ? 'bg-foreground text-background hover:opacity-90 cursor-pointer'
-            : 'bg-muted text-muted-foreground cursor-not-allowed'
-        }`}
-      >
-        {isGenerating ? (
-          <Square size={14} className="fill-current" strokeWidth={iconStroke} />
-        ) : (
-          <ArrowUp size={16} strokeWidth={iconStroke} />
-        )}
-      </button>
+      </div>
     </div>
   )
 })

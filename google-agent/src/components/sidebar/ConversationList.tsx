@@ -14,7 +14,7 @@ export function ConversationList({ searchQuery }: { searchQuery: string }) {
 
   const filtered = useMemo(
     () =>
-      conversations.filter((c) =>
+      conversations.filter((c) => !c.draft).filter((c) =>
         c.title.toLowerCase().includes(searchQuery.toLowerCase())
       ),
     [conversations, searchQuery]
@@ -38,16 +38,16 @@ export function ConversationList({ searchQuery }: { searchQuery: string }) {
   }, [filtered])
 
   return (
-    <div className="flex flex-col min-h-full px-1 py-1 space-y-4">
+    <div className="flex flex-col min-h-full py-1 space-y-4">
       {GROUP_LABELS.map((label) => {
         const items = grouped[label]
         if (!items.length) return null
         return (
           <div key={label}>
-            <p className="text-app-caption text-muted-foreground uppercase tracking-wider px-3 py-1 font-medium">
+            <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">
               {label}
             </p>
-            <div className="space-y-0.5">
+            <div className="space-y-px">
               {items.map((conv) => (
                 <ConversationItem
                   key={conv.id}
@@ -65,7 +65,7 @@ export function ConversationList({ searchQuery }: { searchQuery: string }) {
       })}
 
       {filtered.length === 0 && (
-        <p className="text-app-caption text-muted-foreground text-center py-8">
+        <p className="px-2 py-2 text-xs text-muted-foreground">
           No conversations found
         </p>
       )}

@@ -116,10 +116,41 @@ export function ChatInterface() {
     Object.entries(settings.agentOverrides).map(([key, value]) => [key, value.enabled])
   ) as Partial<Record<AgentName, boolean>>
 
+  const roomLabel = roomAgent ? getAgentLabel(roomAgent) ?? roomAgent : null
+  const showComposer = !showPicker && !showLegacyBanner
+  const composer = showComposer ? (
+    <ChatInput
+      ref={inputRef}
+      onSend={handleSend}
+      onStop={() => {
+        cancelActiveStream()
+        setGenerating(false)
+      }}
+      isGenerating={isGenerating}
+      isAwaitingApproval={oauthPermissionError !== null}
+      disabled={chatDisabled || inputLockedToRoom}
+      checking={readinessLoading}
+      contextLabel={roomLabel ? `${roomLabel} agent` : null}
+      placeholder={roomAgent ? `Message ${roomLabel}…` : 'Ask anything'}
+    />
+  ) : null
+  // On an empty chat the composer sits under the greeting, as in Claude; otherwise at the bottom.
+  const composerInWelcome = isEmpty && !showPicker && !chatBlocked && !readinessLoading
+
   return (
     <>
       <div className="flex-1 min-h-0 flex flex-col w-full">
-        <div className="flex-1 flex flex-col min-h-0 w-full max-w-[48rem] mx-auto px-4">
+        {!isEmpty && displayConv ? (
+          <header className="shrink-0 h-12 flex items-center gap-2 px-5 border-b border-border/60">
+            <h2 className="min-w-0 truncate text-sm font-sans font-medium text-foreground">
+              {displayConv.title}
+            </h2>
+            {roomLabel ? (
+              <span className="shrink-0 text-xs text-muted-foreground">· {roomLabel}</span>
+            ) : null}
+          </header>
+        ) : null}
+        <div className="flex-1 flex flex-col min-h-0 w-full max-w-3xl mx-auto px-6">
           <div className="relative flex-1 min-h-0 overflow-y-auto scrollbar-none flex flex-col">
             {showChatLoader && (
               <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/90">
@@ -144,11 +175,12 @@ export function ChatInterface() {
                 mode="room"
                 agent={roomAgent}
                 agentEnabled={agentEnabled}
+                composer={composer}
                 onSelectAgent={(agent) => void handleSelectAgent(agent)}
                 onSelectPrompt={handleSend}
               />
             ) : (
-              <div className="py-6 pb-8">
+              <div className="pt-8 pb-10">
                 <MessageList
                   messages={displayConv!.messages}
                   isGenerating={isGenerating}
@@ -159,7 +191,7 @@ export function ChatInterface() {
             )}
           </div>
 
-          <div className="shrink-0 pb-4">
+          <div className="shrink-0 pb-5">
             {chatBlocked && !isEmpty ? (
               <div className="mb-3 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-app-caption text-destructive">
                 {issues[0]?.message ?? 'App is not ready. Fix system issues before sending messages.'}
@@ -170,25 +202,7 @@ export function ChatInterface() {
                 This chat is not tied to an agent. Start a new chat from the home screen.
               </div>
             ) : null}
-            {!showPicker && !showLegacyBanner ? (
-              <ChatInput
-                ref={inputRef}
-                onSend={handleSend}
-                onStop={() => {
-                  cancelActiveStream()
-                  setGenerating(false)
-                }}
-                isGenerating={isGenerating}
-                isAwaitingApproval={oauthPermissionError !== null}
-                disabled={chatDisabled || inputLockedToRoom}
-                checking={readinessLoading}
-                placeholder={
-                  roomAgent
-                    ? `Message ${getAgentLabel(roomAgent) ?? roomAgent}…`
-                    : 'Ask anything'
-                }
-              />
-            ) : null}
+            {composerInWelcome ? null : composer}
           </div>
         </div>
       </div>

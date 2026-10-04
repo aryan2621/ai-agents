@@ -1,12 +1,17 @@
+import asyncio
+import logging
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.database import Store
 
 from app.constants.models import normalize_llm_model
+from app.services import local_llm
 from app.db.database import get_db
-from app.services.app_config import save_ollama_config
 from app.services.auth_service import get_user_by_access_token
 from app.services.conversation_service import DEFAULT_AGENT_OVERRIDES, get_or_create_settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -31,7 +36,6 @@ class SettingsOut(BaseModel):
     theme: str = "system"
     onboardingCompleted: bool = False
     tavilySearchApiKey: str = ""
-    ollamaBaseUrl: str = ""
     agentOverrides: dict[str, AgentOverrideOut] = Field(default_factory=dict)
 
 
@@ -45,7 +49,6 @@ class SettingsUpdate(BaseModel):
     theme: str | None = None
     onboardingCompleted: bool | None = None
     tavilySearchApiKey: str | None = None
-    ollamaBaseUrl: str | None = None
     agentOverrides: dict[str, AgentOverrideOut] | None = None
 
 
@@ -61,7 +64,6 @@ def _to_out(s) -> SettingsOut:
         theme=getattr(s, "theme", None) or "system",
         onboardingCompleted=bool(getattr(s, "onboarding_completed", False)),
         tavilySearchApiKey=getattr(s, "tavily_search_api_key", "") or "",
-        ollamaBaseUrl=getattr(s, "ollama_base_url", "") or "",
         agentOverrides={
             k: AgentOverrideOut(**v) if isinstance(v, dict) else AgentOverrideOut(enabled=True)
             for k, v in overrides.items()
@@ -72,7 +74,7 @@ def _to_out(s) -> SettingsOut:
 @router.get("", response_model=SettingsOut)
 async def get_settings(
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     row = await get_user_by_access_token(session, token)
@@ -87,7 +89,7 @@ async def get_settings(
 async def put_settings(
     body: SettingsUpdate,
     authorization: str | None = Header(default=None),
-    session: AsyncSession = Depends(get_db),
+    session: Store = Depends(get_db),
 ):
     token = _extract_bearer(authorization)
     row = await get_user_by_access_token(session, token)
@@ -96,8 +98,11 @@ async def put_settings(
     user, _ = row
     settings = await get_or_create_settings(session, user.id)
 
+    switched_model = False
     if body.defaultModel is not None:
-        settings.default_model = normalize_llm_model(body.defaultModel)
+        model = normalize_llm_model(body.defaultModel)
+        switched_model = model != settings.default_model
+        settings.default_model = model
     if body.temperature is not None:
         settings.temperature = max(0.0, min(2.0, body.temperature))
     if body.maxTokens is not None:
@@ -114,13 +119,6 @@ async def put_settings(
         settings.onboarding_completed = body.onboardingCompleted
     if body.tavilySearchApiKey is not None:
         settings.tavily_search_api_key = body.tavilySearchApiKey.strip()
-    if body.ollamaBaseUrl is not None:
-        settings.ollama_base_url = body.ollamaBaseUrl.strip()
-    if body.defaultModel is not None or body.ollamaBaseUrl is not None:
-        save_ollama_config(
-            base_url=body.ollamaBaseUrl.strip() if body.ollamaBaseUrl is not None else None,
-            model=settings.default_model if body.defaultModel is not None else None,
-        )
     if body.agentOverrides is not None:
         from app.types.agents import ROOM_AGENT_NAMES, is_room_agent
 
@@ -131,5 +129,14 @@ async def put_settings(
         settings.agent_overrides = merged
 
     await session.commit()
-    await session.refresh(settings)
+    if switched_model and settings.default_model:
+        # Switching models loads the new one now (and unloads the old), so chat is ready.
+        asyncio.create_task(_load_selected(settings.default_model))
     return _to_out(settings)
+
+
+async def _load_selected(model_id: str) -> None:
+    try:
+        await local_llm.ensure_running(model_id)
+    except Exception as exc:
+        logger.warning("Could not load %s: %s", model_id, exc)
