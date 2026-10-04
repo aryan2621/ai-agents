@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
+import { OAuthSetupTab } from '@/components/settings/tabs/OAuthSetupTab'
 import { ModelManager } from '@/components/settings/ModelManager'
 import { useGitHubAuth } from '@/hooks/useGitHubAuth'
 import { useAuthStore } from '@/store/authStore'
@@ -125,9 +126,12 @@ export function OnboardingWizard() {
               Sign in with GitHub to connect repositories, issues, pull requests, and notifications.
             </p>
             {!oauthConfigured && (
-              <p className="text-app-caption text-warning ">
-                GitHub OAuth is not configured yet. Complete setup in Settings → GitHub OAuth, or add credentials to backend/.env.
-              </p>
+              <div className="max-h-[50vh] overflow-y-auto -mx-1 px-1">
+                <p className="text-app-caption text-muted-foreground mb-4">
+                  First, connect your own GitHub OAuth client. It's a one-time step.
+                </p>
+                <OAuthSetupTab onSaved={() => setOauthConfigured(true)} />
+              </div>
             )}
             {isAuthenticated ? (
               <p className="text-app-caption text-success flex items-center gap-2">

@@ -38,10 +38,8 @@ port is taken.
    GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=your-client-secret
    ```
-   Copy it for the bundled backend:
-   ```bash
-   cp backend/.env src-tauri/binaries/.env
-   ```
+   In dev the app reads this file directly. Release builds ship without an OAuth client: on first
+   run, the app asks each person for their own (Settings → Google OAuth, also shown at sign-in).
 3. Install dependencies:
    ```bash
    npm install
@@ -75,7 +73,8 @@ Builds the llama.cpp server, Next.js static export, PyInstaller sidecar, and Tau
 npm run build
 ```
 
-Copy `backend/.env` to `src-tauri/binaries/.env` before building so the OAuth client is picked up by the sidecar. Secrets are not embedded in the frontend bundle.
+Nothing secret is built in: release apps ask for the user's own Google OAuth client on first run and keep it
+in the app's data folder on their Mac.
 
 ## Architecture
 

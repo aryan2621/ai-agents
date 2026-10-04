@@ -12,7 +12,9 @@ import { SettingsCard, SettingsSection, SettingsStatusBadge } from '../SettingsL
 
 const CONSOLE_URL = 'https://github.com/settings/developers'
 
-export function OAuthSetupTab() {
+/** The OAuth client setup. Also shown before sign-in (onboarding, sign-in screen), since
+ * builds ship without a client: each person uses their own. */
+export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAway?: () => void } = {}) {
   const [clientId, setClientId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [configured, setConfigured] = useState(false)
@@ -44,6 +46,7 @@ export function OAuthSetupTab() {
       toast.success('OAuth credentials saved')
       setClientSecret('')
       await refresh()
+      onSaved?.()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to save credentials')
     } finally {
@@ -119,10 +122,8 @@ export function OAuthSetupTab() {
           </Button>
 
           <p className="text-app-caption text-muted-foreground leading-relaxed">
-            Stored locally in <code className="text-[11px]">app_config.json</code> next to the backend.
-            You can also set <code className="text-[11px]">GITHUB_CLIENT_ID</code> and{' '}
-            <code className="text-[11px]">GITHUB_CLIENT_SECRET</code> in{' '}
-            <code className="text-[11px]">backend/.env</code>.
+            Saved only on this Mac, in the app's data folder. It never leaves your computer
+            except to sign you in with GitHub.
           </p>
         </SettingsCard>
       </SettingsSection>

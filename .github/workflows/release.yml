@@ -21,11 +21,8 @@ jobs:
         include:
           - app: github-agent
             name: GitHub Agent
-            # Secret names can't start with "GITHUB_", hence "GH_AGENT_".
-            secrets: GH_AGENT
           - app: google-agent
             name: Google Agent
-            secrets: GOOGLE_AGENT
     defaults:
       run:
         working-directory: ${{ matrix.app }}
@@ -50,23 +47,10 @@ jobs:
 
       - run: npm ci
 
-      # beforeBuildCommand builds the Next.js UI and the Python backend sidecar first.
-      # The Rust shell reads the OAuth client from these variables at compile time
-      # (src-tauri/src/commands/sidecar.rs) and hands it to the backend when the app runs.
-      # Each job only receives its own app's secrets.
+      # beforeBuildCommand builds llama-server, the Next.js UI and the Python backend sidecar first.
+      # No OAuth client is built in: on first run each app asks for the user's own.
       - name: Build app
-        env:
-          GH_AGENT_CLIENT_ID: ${{ matrix.app == 'github-agent' && secrets.GH_AGENT_CLIENT_ID || '' }}
-          GH_AGENT_CLIENT_SECRET: ${{ matrix.app == 'github-agent' && secrets.GH_AGENT_CLIENT_SECRET || '' }}
-          GOOGLE_AGENT_CLIENT_ID: ${{ matrix.app == 'google-agent' && secrets.GOOGLE_AGENT_CLIENT_ID || '' }}
-          GOOGLE_AGENT_CLIENT_SECRET: ${{ matrix.app == 'google-agent' && secrets.GOOGLE_AGENT_CLIENT_SECRET || '' }}
-        run: |
-          id="${{ matrix.secrets }}_CLIENT_ID" secret="${{ matrix.secrets }}_CLIENT_SECRET"
-          if [ -z "${!id}" ] || [ -z "${!secret}" ]; then
-            echo "::error::Add the $id and $secret repository secrets (Settings → Secrets and variables → Actions)."
-            exit 1
-          fi
-          npx tauri build --bundles app,dmg
+        run: npx tauri build --bundles app,dmg
 
       - uses: actions/upload-artifact@v4
         with:

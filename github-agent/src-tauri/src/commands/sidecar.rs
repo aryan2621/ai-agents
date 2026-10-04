@@ -42,24 +42,11 @@ fn parse_env_file(path: &Path) -> HashMap<String, String> {
     map
 }
 
-/// The OAuth client, read from the build environment at compile time: release builds get
-/// GH_AGENT_CLIENT_ID/_SECRET from the repository's Actions secrets. A local `backend/.env`
-/// still takes precedence.
-const BUILD_ENV: [(&str, Option<&str>); 2] = [
-    ("GITHUB_CLIENT_ID", option_env!("GH_AGENT_CLIENT_ID")),
-    ("GITHUB_CLIENT_SECRET", option_env!("GH_AGENT_CLIENT_SECRET")),
-];
-
 fn load_backend_env() -> HashMap<String, String> {
     let mut merged = HashMap::new();
     for path in backend_env_candidates() {
         if path.is_file() {
             merged.extend(parse_env_file(&path));
-        }
-    }
-    for (key, value) in BUILD_ENV {
-        if let Some(value) = value.filter(|v| !v.is_empty()) {
-            merged.entry(key.to_string()).or_insert_with(|| value.to_string());
         }
     }
     merged

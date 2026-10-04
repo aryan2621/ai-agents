@@ -7,6 +7,8 @@ import { useAuthStore } from '@/store/authStore'
 import { useGoogleAuth } from '@/hooks/useGoogleAuth'
 import { useSidecar } from '@/hooks/useSidecar'
 import { Button } from '@/components/ui/button'
+import { OAuthSetupTab } from '@/components/settings/tabs/OAuthSetupTab'
+import { fetchOAuthSetupStatus } from '@/lib/api'
 import { toast } from 'sonner'
 import { PRODUCT_NAME, PRODUCT_TAGLINE } from '@/lib/onboarding'
 
@@ -40,6 +42,15 @@ export default function AuthPage() {
   const { isHealthy: isBackendReady, isChecking: isBackendChecking, lastError: backendError } =
     useSidecar()
   const [isSigningIn, setIsSigningIn] = useState(false)
+  // null while checking; false shows the OAuth client setup instead of the sign-in button.
+  const [oauthReady, setOauthReady] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!isBackendReady) return
+    fetchOAuthSetupStatus()
+      .then((status) => setOauthReady(status.configured))
+      .catch(() => setOauthReady(true)) // let sign-in report the problem
+  }, [isBackendReady])
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) router.replace('/chat')
@@ -69,8 +80,8 @@ export default function AuthPage() {
   const signInDisabled = isSigningIn || isBackendStarting
 
   return (
-    <div className="relative flex-1 min-h-0 bg-background overflow-hidden">
-      <div className="relative h-full flex items-center justify-center px-4">
+    <div className="relative flex-1 min-h-0 bg-background overflow-y-auto">
+      <div className="relative min-h-full flex items-center justify-center px-4">
         <div className="w-full max-w-[380px] px-2 py-10 flex flex-col items-center gap-7 text-center">
           <Image
             src="/app-icon.png"
@@ -90,29 +101,38 @@ export default function AuthPage() {
             </p>
           </div>
 
-          <div className="w-full space-y-4">
-            <p className="text-sm font-medium text-muted-foreground">Sign in</p>
-
-            <Button
-              onClick={handleGoogleLogin}
-              disabled={signInDisabled}
-              variant="outline"
-              className="w-full h-11 rounded-xl bg-popover hover:bg-accent text-foreground border-border font-medium gap-3 justify-center px-4 shadow-[0_1px_2px_hsl(var(--foreground)/0.05)]"
-            >
-              <GoogleIcon />
-              {isSigningIn
-                ? 'Waiting for Google sign-in…'
-                : isBackendStarting
-                  ? 'Starting backend…'
-                  : 'Continue with Google'}
-            </Button>
-
-            {backendError && (
-              <p className="text-app-caption text-destructive text-left leading-relaxed">
-                {backendError}
+          {oauthReady === false ? (
+            <div className="w-full text-left space-y-4">
+              <p className="text-sm text-muted-foreground text-center">
+                Connect your own Google OAuth client to sign in. It's a one-time step.
               </p>
-            )}
-          </div>
+              <OAuthSetupTab onSaved={() => setOauthReady(true)} />
+            </div>
+          ) : (
+            <div className="w-full space-y-4">
+              <p className="text-sm font-medium text-muted-foreground">Sign in</p>
+
+              <Button
+                onClick={handleGoogleLogin}
+                disabled={signInDisabled}
+                variant="outline"
+                className="w-full h-11 rounded-xl bg-popover hover:bg-accent text-foreground border-border font-medium gap-3 justify-center px-4 shadow-[0_1px_2px_hsl(var(--foreground)/0.05)]"
+              >
+                <GoogleIcon />
+                {isSigningIn
+                  ? 'Waiting for Google sign-in…'
+                  : isBackendStarting
+                    ? 'Starting backend…'
+                    : 'Continue with Google'}
+              </Button>
+
+              {backendError && (
+                <p className="text-app-caption text-destructive text-left leading-relaxed">
+                  {backendError}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

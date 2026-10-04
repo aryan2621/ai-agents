@@ -38,10 +38,8 @@ port is taken.
    GITHUB_CLIENT_ID=your-oauth-app-client-id
    GITHUB_CLIENT_SECRET=your-oauth-app-client-secret
    ```
-   Copy it for the bundled backend:
-   ```bash
-   cp backend/.env src-tauri/binaries/.env
-   ```
+   In dev the app reads this file directly. Release builds ship without an OAuth client: on first
+   run, the app asks each person for their own (Settings → GitHub OAuth, also shown at sign-in).
 3. Install dependencies:
    ```bash
    npm install

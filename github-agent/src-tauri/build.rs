@@ -1,7 +1,4 @@
 fn main() {
-    // Rebuild when the OAuth client baked in by commands/sidecar.rs changes.
-    println!("cargo:rerun-if-env-changed=GH_AGENT_CLIENT_ID");
-    println!("cargo:rerun-if-env-changed=GH_AGENT_CLIENT_SECRET");
     // ports.json is the one place the ports are set; the code reads BACKEND_PORT from it.
     println!("cargo:rerun-if-changed=../ports.json");
     println!("cargo:rerun-if-changed=tauri.conf.json");
