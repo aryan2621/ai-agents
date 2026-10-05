@@ -1,70 +1,33 @@
 # GitHub Agent
 
-> **Just want to use the app?** See the [install guide](../README.md): download, opening an unsigned
-> app, first-run setup and privacy. This page is for building from source.
+**Your private AI for GitHub. Ask about repos, issues, pull requests and notifications, in plain words.**
 
-A desktop AI assistant for GitHub (repos, issues, pull requests, code, and notifications). Built with Tauri, Next.js, FastAPI and a built-in llama.cpp model. Chats are saved as local JSON files.
+<!-- DEMO VIDEO: paste the https://github.com/user-attachments/assets/... link on the next line -->
 
-**Tagline:** Your private, local AI for GitHub — repos, issues, pull requests, and notifications.
+- *"Which of my PRs are still open?"*, *"Summarise issue 42 in my-app"*, *"What's new in my notifications?"*
+- Opens issues, comments, creates and merges pull requests, reads code and commits, when you ask.
+- The AI runs on your Mac. You sign in with your own GitHub OAuth app; nothing shared ships with it.
 
-## Prerequisites
+**[⬇ Download for macOS](https://github.com/aryan2621/ai-agents/releases/latest/download/GitHub.Agent_0.1.0_aarch64.dmg)**
+· Apple silicon, 8 GB of memory or more
 
-1. **Node.js 20+** and **Rust** (for Tauri)
-2. **Python 3.11+**
-3. **CMake** (to build the bundled llama.cpp server; `brew install cmake`)
-4. **GitHub OAuth App** — create an OAuth App at [GitHub Developer settings](https://github.com/settings/developers). Set the authorization callback URL to:
-   ```
-   http://127.0.0.1:47831/auth/github/callback
-   ```
+📖 **[User guide](docs/user.md)** — first run, what each room does, settings, troubleshooting
+🛠 **[Developer guide](docs/dev.md)** — build from source, ports, architecture
 
-### Ports
+## Install
 
-| | GitHub Agent | Google Agent |
-|---|---|---|
-| Backend (FastAPI) | 47831, fixed | 47832, fixed |
-| Dev UI (`next dev`) | 47821, `GITHUB_AGENT_UI_PORT` | 47822, `GOOGLE_AGENT_UI_PORT` |
-| llama-server | a free port picked at launch | same |
-
-The two apps never share a port, so both can run at the same time. The backend port is fixed because
-the OAuth redirect URI, the Tauri shell and the window's CSP all name it; it does not read `HOST` or
-`PORT`. In dev, set `GITHUB_AGENT_UI_PORT` to move the UI; `npm run dev` stops with a message if the
-port is taken.
-
-## Setup
-
-1. Copy environment file:
+1. Open the `.dmg`, drag **GitHub Agent** into **Applications**, and open it.
+2. If macOS says **"Apple could not verify GitHub Agent is free of malware"**: click **Done**, go to
+   **System Settings → Privacy & Security**, and click **Open Anyway**.
+3. If it says the app **"is damaged"**, run this once in Terminal and open it again:
    ```bash
-   cp backend/.env.example backend/.env
+   xattr -dr com.apple.quarantine "/Applications/GitHub Agent.app"
    ```
-2. Edit `backend/.env` with your GitHub OAuth credentials:
-   ```
-   GITHUB_CLIENT_ID=your-oauth-app-client-id
-   GITHUB_CLIENT_SECRET=your-oauth-app-client-secret
-   ```
-   In dev the app reads this file directly. Release builds ship without an OAuth client: on first
-   run, the app asks each person for their own (Settings → GitHub OAuth, also shown at sign-in).
-3. Install dependencies:
-   ```bash
-   npm install
-   cd backend && pip install -r requirements.txt
-   ```
-4. On first launch, download a model in the onboarding step (or Settings → Models). It runs on this Mac;
-   nothing else to install. Chats, settings and models live in `~/Library/Application Support/GitHub Agent/`.
 
-## Run
+## Quick start
 
-Desktop app only — the Python backend starts automatically as a bundled sidecar. No separate server terminal.
-
-```bash
-npm run dev
-```
-
-First run builds the sidecar binary if missing (~1–2 min). After that, startup is fast.
-
-Rebuild the backend after Python changes:
-
-```bash
-npm run build:sidecar
-```
-
-Global shortcut: `Cmd+Shift+H` (macOS) / `Ctrl+Shift+H` (Windows/Linux).
+1. **Download a model** when asked (it recommends one for your Mac).
+2. **Connect GitHub:** [github.com/settings/developers](https://github.com/settings/developers) →
+   **New OAuth App**, homepage `http://127.0.0.1:47831`, callback
+   `http://127.0.0.1:47831/auth/github/callback`. Paste its Client ID and Client Secret.
+3. **Sign in with GitHub**, pick a room, and ask. **⌘⇧H** shows the app from anywhere.
