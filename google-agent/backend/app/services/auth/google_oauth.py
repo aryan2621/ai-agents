@@ -72,6 +72,11 @@ async def exchange_code(
             },
         )
         if token_resp.status_code != 200:
+            if "invalid_client" in token_resp.text or "unauthorized_client" in token_resp.text:
+                raise ValueError(
+                    "Google didn't accept your Client ID and Client Secret. Copy both from the "
+                    "same Desktop app client and save them again in Settings → Google OAuth."
+                )
             raise ValueError(f"Token exchange failed: {token_resp.text}")
 
         token_data = token_resp.json()
@@ -143,6 +148,12 @@ async def refresh_access_token(
             },
         )
         if resp.status_code != 200:
+            if "invalid_grant" in resp.text:
+                # Revoked, or expired: Google ends sign-ins after 7 days while a project is in Testing.
+                raise ValueError(
+                    "Google signed you out. Sign in again. If this happens every week, publish "
+                    "your Google project (Settings → Google OAuth, step 4)."
+                )
             raise ValueError(f"Token refresh failed: {resp.text}")
 
         data = resp.json()

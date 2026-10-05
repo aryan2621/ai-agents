@@ -41,6 +41,11 @@ async def oauth_status():
 async def save_oauth(body: OAuthSetupRequest):
     if not body.clientId.strip() or not body.clientSecret.strip():
         raise HTTPException(status_code=400, detail="Client ID and secret are required")
+    if not body.clientId.strip().endswith(".apps.googleusercontent.com"):
+        raise HTTPException(
+            status_code=400,
+            detail="That isn't a Client ID. It ends in .apps.googleusercontent.com.",
+        )
     path = save_oauth_credentials(body.clientId.strip(), body.clientSecret.strip())
     return {
         "ok": True,

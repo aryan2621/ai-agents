@@ -58,19 +58,41 @@ def _build(cls: type, data: dict) -> Any:
     return cls(**values)
 
 
+# Sign-in tokens, settings and chats (which quote emails, files…) are for this user only.
+PRIVATE_FILE = 0o600
+PRIVATE_DIR = 0o700
+
+
 def _write_atomic(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.mkdir(mode=PRIVATE_DIR, parents=True, exist_ok=True)
     pending = path.with_name(f".{path.name}.tmp")
-    with open(pending, "w", encoding="utf-8") as handle:
+    fd = os.open(pending, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, PRIVATE_FILE)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
         handle.write(text)
         handle.flush()
         os.fsync(handle.fileno())
+    os.chmod(pending, PRIVATE_FILE)  # in case it was left over, readable, from an older version
     os.replace(pending, path)
+
+
+def _make_private(root: Path) -> None:
+    """Locks down data written by older versions, which other users on the Mac could read."""
+    try:
+        if root.is_dir():
+            os.chmod(root, PRIVATE_DIR)
+        for path in [root / "account.json", root / "settings.json", *root.glob("conversations/*.json")]:
+            if path.is_file():
+                os.chmod(path, PRIVATE_FILE)
+        if (root / "conversations").is_dir():
+            os.chmod(root / "conversations", PRIVATE_DIR)
+    except OSError:
+        pass
 
 
 class Store:
     def __init__(self, root: Path) -> None:
         self.root = root
+        _make_private(root)
         self.users: dict[str, User] = {}
         self.tokens: dict[str, OAuthToken] = {}  # by user id
         self.settings: dict[str, UserSettings] = {}  # by user id

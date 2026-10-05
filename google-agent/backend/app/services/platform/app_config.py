@@ -35,6 +35,8 @@ def save_oauth_credentials(client_id: str, client_secret: str) -> Path:
     existing["GOOGLE_CLIENT_ID"] = client_id.strip()
     existing["GOOGLE_CLIENT_SECRET"] = client_secret.strip()
     path.write_text(json.dumps(existing, indent=2), encoding="utf-8")
+    # The client secret is in here: only this user may read it.
+    path.chmod(0o600)
     return path
 
 
