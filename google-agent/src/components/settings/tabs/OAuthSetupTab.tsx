@@ -1,6 +1,5 @@
 'use client'
 
-import { API_BASE_URL } from '@/lib/config'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +9,8 @@ import { toast } from 'sonner'
 import { Check, ExternalLink } from 'lucide-react'
 import { SettingsCard, SettingsSection, SettingsStatusBadge } from '../SettingsLayout'
 
-const CONSOLE_URL = 'https://console.cloud.google.com/apis/credentials'
+/** The steps to make a client (Google Cloud project, APIs, sign-in screen, Desktop client) live here. */
+const GUIDE_URL = 'https://github.com/aryan2621/ai-agents/blob/main/google-agent/docs/google-setup.md'
 
 /** The OAuth client setup. Also shown before sign-in (onboarding, sign-in screen), since
  * builds ship without a client: each person uses their own. */
@@ -36,14 +36,19 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
   }, [])
 
   const handleSave = async () => {
-    if (!clientId.trim() || !clientSecret.trim()) {
+    const id = clientId.trim()
+    if (!id || !clientSecret.trim()) {
       toast.error('Enter both Client ID and Client Secret')
+      return
+    }
+    if (!id.endsWith('.apps.googleusercontent.com')) {
+      toast.error("That isn't a Client ID. It ends in .apps.googleusercontent.com.")
       return
     }
     setSaving(true)
     try {
-      await saveOAuthCredentials(clientId.trim(), clientSecret.trim())
-      toast.success('OAuth credentials saved')
+      await saveOAuthCredentials(id, clientSecret.trim())
+      toast.success('Saved. You can sign in with Google now.')
       setClientSecret('')
       await refresh()
       onSaved?.()
@@ -55,7 +60,19 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
+      <p className="text-app-caption text-muted-foreground leading-relaxed">
+        Google Agent signs in with your own free Google Cloud project, so only your account and keys
+        are used. They're saved only on this Mac.{' '}
+        <button
+          type="button"
+          className="inline-flex items-center gap-0.5 text-foreground underline"
+          onClick={() => openExternal(GUIDE_URL)}
+        >
+          Setup guide <ExternalLink size={12} />
+        </button>
+      </p>
+
       {configured && (
         <SettingsStatusBadge variant="success">
           <Check size={12} />
@@ -63,35 +80,7 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
         </SettingsStatusBadge>
       )}
 
-      <SettingsSection title="Setup steps">
-        <SettingsCard className="p-4 divide-y-0">
-          <ol className="space-y-3 text-app-caption text-muted-foreground list-decimal list-inside leading-relaxed">
-            <li>
-              Open{' '}
-              <button
-                type="button"
-                className="text-foreground underline inline-flex items-center gap-0.5"
-                onClick={() => openExternal(CONSOLE_URL)}
-              >
-                Google Cloud Console <ExternalLink size={12} />
-              </button>
-            </li>
-            <li>
-              Create an OAuth client of type <strong className="text-foreground">Desktop app</strong>
-            </li>
-            <li>
-              Add redirect URI:{' '}
-              <code className="text-foreground bg-muted px-1 rounded">
-                {API_BASE_URL}/auth/google/callback
-              </code>
-            </li>
-            <li>Enable Gmail, Calendar, Drive, Docs, and Sheets APIs for your project</li>
-            <li>Copy the Client ID and Client Secret below</li>
-          </ol>
-        </SettingsCard>
-      </SettingsSection>
-
-      <SettingsSection title="Credentials">
+      <SettingsSection title={configured ? 'Use a different client' : 'Client ID and Secret'}>
         <SettingsCard className="p-4 space-y-4 divide-y-0">
           <div className="space-y-2">
             <label htmlFor="oauth-client-id" className="text-app-body text-foreground">
@@ -101,7 +90,8 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
               id="oauth-client-id"
               value={clientId}
               onChange={(e) => setClientId(e.target.value)}
-              placeholder="your-id.apps.googleusercontent.com"
+              placeholder="ends in .apps.googleusercontent.com"
+              spellCheck={false}
             />
           </div>
 
@@ -114,18 +104,13 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
               type="password"
               value={clientSecret}
               onChange={(e) => setClientSecret(e.target.value)}
-              placeholder="GOCSPX-…"
+              placeholder="starts with GOCSPX-"
             />
           </div>
 
           <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
             {saving ? 'Saving…' : 'Save OAuth credentials'}
           </Button>
-
-          <p className="text-app-caption text-muted-foreground leading-relaxed">
-            Saved only on this Mac, in the app's data folder. It never leaves your computer
-            except to sign you in with Google.
-          </p>
         </SettingsCard>
       </SettingsSection>
     </div>

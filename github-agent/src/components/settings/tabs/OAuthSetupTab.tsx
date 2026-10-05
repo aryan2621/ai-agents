@@ -11,6 +11,8 @@ import { Check, ExternalLink } from 'lucide-react'
 import { SettingsCard, SettingsSection, SettingsStatusBadge } from '../SettingsLayout'
 
 const CONSOLE_URL = 'https://github.com/settings/developers'
+/** The full steps (homepage URL, secret, troubleshooting) live in the user guide. */
+const GUIDE_URL = 'https://github.com/aryan2621/ai-agents/blob/main/github-agent/docs/user.md#first-run'
 
 /** The OAuth client setup. Also shown before sign-in (onboarding, sign-in screen), since
  * builds ship without a client: each person uses their own. */
@@ -56,6 +58,27 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
 
   return (
     <div className="space-y-8">
+      <p className="text-app-caption text-muted-foreground leading-relaxed">
+        Create an OAuth App in{' '}
+        <button
+          type="button"
+          className="text-foreground underline inline-flex items-center gap-0.5"
+          onClick={() => openExternal(CONSOLE_URL)}
+        >
+          GitHub Developer settings <ExternalLink size={12} />
+        </button>{' '}
+        with callback URL{' '}
+        <code className="text-foreground bg-muted px-1 rounded">{API_BASE_URL}/auth/github/callback</code>,
+        then paste its Client ID and Secret. They're saved only on this Mac.{' '}
+        <button
+          type="button"
+          className="text-foreground underline inline-flex items-center gap-0.5"
+          onClick={() => openExternal(GUIDE_URL)}
+        >
+          Setup guide <ExternalLink size={12} />
+        </button>
+      </p>
+
       {configured && (
         <SettingsStatusBadge variant="success">
           <Check size={12} />
@@ -63,34 +86,7 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
         </SettingsStatusBadge>
       )}
 
-      <SettingsSection title="Setup steps">
-        <SettingsCard className="p-4 divide-y-0">
-          <ol className="space-y-3 text-app-caption text-muted-foreground list-decimal list-inside leading-relaxed">
-            <li>
-              Open{' '}
-              <button
-                type="button"
-                className="text-foreground underline inline-flex items-center gap-0.5"
-                onClick={() => openExternal(CONSOLE_URL)}
-              >
-                GitHub Developer settings <ExternalLink size={12} />
-              </button>
-            </li>
-            <li>
-              Create an <strong className="text-foreground">OAuth App</strong>
-            </li>
-            <li>
-              Set the authorization callback URL to{' '}
-              <code className="text-foreground bg-muted px-1 rounded">
-                {API_BASE_URL}/auth/github/callback
-              </code>
-            </li>
-            <li>Copy the Client ID and Client Secret below</li>
-          </ol>
-        </SettingsCard>
-      </SettingsSection>
-
-      <SettingsSection title="Credentials">
+      <SettingsSection title={configured ? 'Use a different client' : 'Client ID and Secret'}>
         <SettingsCard className="p-4 space-y-4 divide-y-0">
           <div className="space-y-2">
             <label htmlFor="oauth-client-id" className="text-app-body text-foreground">
@@ -121,10 +117,6 @@ export function OAuthSetupTab({ onSaved }: { onSaved?: () => void; onNavigateAwa
             {saving ? 'Saving…' : 'Save OAuth credentials'}
           </Button>
 
-          <p className="text-app-caption text-muted-foreground leading-relaxed">
-            Saved only on this Mac, in the app's data folder. It never leaves your computer
-            except to sign you in with GitHub.
-          </p>
         </SettingsCard>
       </SettingsSection>
     </div>

@@ -66,7 +66,7 @@ export default function AuthPage() {
 
   return (
     <div className="relative flex-1 min-h-0 bg-background overflow-y-auto">
-      <div className="relative min-h-full flex items-center justify-center px-4">
+      <div className="relative min-h-full flex flex-col items-center justify-center px-4">
         <div className="w-full max-w-[380px] px-2 py-10 flex flex-col items-center gap-7 text-center">
           <Image
             src="/app-icon.png"
@@ -87,10 +87,7 @@ export default function AuthPage() {
           </div>
 
           {oauthReady === false ? (
-            <div className="w-full text-left space-y-4">
-              <p className="text-sm text-muted-foreground text-center">
-                Connect your own GitHub OAuth client to sign in. It's a one-time step.
-              </p>
+            <div className="w-full text-left">
               <OAuthSetupTab onSaved={() => setOauthReady(true)} />
             </div>
           ) : (
@@ -119,11 +116,11 @@ export default function AuthPage() {
             </div>
           )}
         </div>
+        {/* In the flow, not pinned: the setup form scrolls past it instead of under it. */}
+        <p className="pb-8 text-app-caption text-muted-foreground text-center px-6 leading-relaxed">
+          By continuing you grant access to your GitHub repositories, issues, pull requests, and notifications.
+        </p>
       </div>
-
-      <p className="absolute bottom-8 left-0 right-0 text-app-caption text-muted-foreground text-center px-6 leading-relaxed">
-        By continuing you grant access to your GitHub repositories, issues, pull requests, and notifications.
-      </p>
     </div>
   )
 }
