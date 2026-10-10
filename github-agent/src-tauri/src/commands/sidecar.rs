@@ -163,8 +163,11 @@ async fn run_backend(app: &tauri::AppHandle) -> bool {
     }
 
     // The backend ships unpacked in Resources/python-backend/ (a PyInstaller folder build).
-    let exe = match app.path().resource_dir() {
-        Ok(dir) => dir.join("python-backend").join("python-backend"),
+    let resources = app.path().resource_dir();
+    let exe = match &resources {
+        Ok(dir) => dir
+            .join("python-backend")
+            .join(if cfg!(windows) { "python-backend.exe" } else { "python-backend" }),
         Err(e) => {
             let _ = app.emit("backend-error", format!("Cannot find app resources: {}", e));
             return false;
@@ -175,7 +178,13 @@ async fn run_backend(app: &tauri::AppHandle) -> bool {
     for (key, value) in load_backend_env() {
         sidecar_command = sidecar_command.env(key, value);
     }
-    // The bundled llama.cpp server (externalBin) sits next to this app's executable.
+    // The bundled llama.cpp server: on macOS an externalBin next to this app's executable; on
+    // Windows a resource folder with the DLLs it loads (tauri.windows.conf.json).
+    #[cfg(windows)]
+    if let Ok(dir) = &resources {
+        sidecar_command = sidecar_command.env("LLAMA_SERVER_PATH", dir.join("llama").join("llama-server.exe"));
+    }
+    #[cfg(not(windows))]
     if let Some(dir) = std::env::current_exe().ok().and_then(|p| p.parent().map(|d| d.to_path_buf())) {
         sidecar_command = sidecar_command.env("LLAMA_SERVER_PATH", dir.join("llama-server"));
     }

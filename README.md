@@ -4,10 +4,11 @@
 
 | | | |
 |---|---|---|
-| **[GitHub Agent](github-agent/)** | Repos, issues, pull requests, code and notifications | [⬇ Download](https://github.com/aryan2621/ai-agents/releases/latest/download/GitHub.Agent_0.1.0_aarch64.dmg) |
-| **[Google Agent](google-agent/)** | Gmail, Calendar, Drive, Docs and Sheets | [⬇ Download](https://github.com/aryan2621/ai-agents/releases/latest/download/Google.Agent_0.1.0_aarch64.dmg) |
+| **[GitHub Agent](github-agent/)** | Repos, issues, pull requests, code and notifications | [⬇ macOS](https://github.com/aryan2621/ai-agents/releases/latest/download/GitHub.Agent_0.1.0_aarch64.dmg) · [Windows (beta)](https://github.com/aryan2621/ai-agents/releases/latest/download/GitHub.Agent_0.1.0_x64-setup.exe) |
+| **[Google Agent](google-agent/)** | Gmail, Calendar, Drive, Docs and Sheets | [⬇ macOS](https://github.com/aryan2621/ai-agents/releases/latest/download/Google.Agent_0.1.0_aarch64.dmg) · [Windows (beta)](https://github.com/aryan2621/ai-agents/releases/latest/download/Google.Agent_0.1.0_x64-setup.exe) |
 
-Mac with Apple silicon (M1 or newer), 8 GB of memory or more ·
+Mac with Apple silicon (M1 or newer), 8 GB of memory or more · Windows 10/11 (x64) **beta**:
+the AI runs on the processor (no GPU), so replies are slower; tried in CI only so far ·
 [all downloads](https://github.com/aryan2621/ai-agents/releases/latest)
 
 - **Private:** the AI runs on your Mac. Chats and settings stay there.

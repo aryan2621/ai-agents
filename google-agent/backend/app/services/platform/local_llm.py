@@ -255,6 +255,8 @@ def server_binary() -> Path | None:
         # tauri dev: target/debug/python-backend/python-backend → target/debug/llama-server
         candidates.append(exe.parents[1] / "llama-server")
     binaries = Path(__file__).resolve().parents[4] / "src-tauri" / "binaries"
+    # Windows dev builds: scripts/fetch-llama-server.ps1 puts it in binaries/llama/.
+    candidates.append(binaries / "llama" / "llama-server.exe")
     candidates.extend(sorted(binaries.glob("llama-server-*")))
     return next((p for p in candidates if p.is_file() and not p.name.endswith(".version")), None)
 
@@ -322,6 +324,8 @@ async def ensure_running(requested: str | None) -> tuple[str, str, str]:
                 "--jinja", "--reasoning-budget", "0",
             ],
             stdout=log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            # No console window on Windows.
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
         _server.model_id, _server.port, _server.token = model_id, port, token
         _pid_file().write_text(str(_server.process.pid))
@@ -351,7 +355,10 @@ async def ensure_running(requested: str | None) -> tuple[str, str, str]:
 
 def _watch_backend(server_pid: int) -> None:
     """Stop llama-server within a second if this backend dies without stopping it (force-killed,
-    so no exit handler runs). A tiny shell loop, detached so it outlives the backend."""
+    so no exit handler runs). A tiny shell loop, detached so it outlives the backend.
+    Not on Windows (no /bin/sh): there the next start stops a leftover server instead."""
+    if sys.platform == "win32":
+        return
     script = (
         f"while kill -0 {os.getpid()} && kill -0 {server_pid}; do sleep 1; done 2>/dev/null; "
         f"kill {server_pid} 2>/dev/null"
@@ -372,9 +379,15 @@ def _stop_leftover() -> None:
     its exit handler never ran), so it doesn't keep a model in memory."""
     try:
         pid = int(_pid_file().read_text().strip())
-        command = subprocess.run(
-            ["ps", "-p", str(pid), "-o", "comm="], capture_output=True, text=True
-        ).stdout
+        if sys.platform == "win32":
+            command = subprocess.run(
+                ["tasklist", "/FI", f"PID eq {pid}", "/FO", "CSV", "/NH"],
+                capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW,
+            ).stdout
+        else:
+            command = subprocess.run(
+                ["ps", "-p", str(pid), "-o", "comm="], capture_output=True, text=True
+            ).stdout
         if "llama-server" in command:
             os.kill(pid, 15)
             logger.info("Stopped a leftover llama-server (pid %s)", pid)

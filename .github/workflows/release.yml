@@ -1,9 +1,10 @@
 name: Build and release
 
-# Push a tag like v0.1.0 to build both apps and publish them on the Releases page.
-# Run it by hand (Actions → Build and release → Run workflow) to build without releasing.
+# Every push to main builds both apps for macOS and Windows (installers under the run's Artifacts).
+# Push a tag like v0.1.0 to also publish them on the Releases page.
 on:
   push:
+    branches: [main]
     tags: ["v*"]
   workflow_dispatch:
 
@@ -13,16 +14,25 @@ concurrency:
 
 jobs:
   build:
-    name: ${{ matrix.name }} (macOS)
-    runs-on: macos-15
+    name: ${{ matrix.name }} (${{ matrix.os_name }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        app: [github-agent, google-agent]
+        os: [macos-15, windows-latest]
         include:
           - app: github-agent
             name: GitHub Agent
           - app: google-agent
             name: Google Agent
+          - os: macos-15
+            os_name: macOS
+            bundles: app,dmg
+          # Windows is a beta: built and packaged in CI, not yet tried on real PCs.
+          - os: windows-latest
+            os_name: Windows
+            bundles: nsis
     defaults:
       run:
         working-directory: ${{ matrix.app }}
@@ -50,12 +60,23 @@ jobs:
       # beforeBuildCommand builds llama-server, the Next.js UI and the Python backend sidecar first.
       # No OAuth client is built in: on first run each app asks for the user's own.
       - name: Build app
-        run: npx tauri build --bundles app,dmg
+        id: build
+        continue-on-error: ${{ runner.os == 'macOS' }}
+        shell: bash
+        run: npx tauri build --bundles ${{ matrix.bundles }}
+
+      # hdiutil on GitHub's macOS runners sometimes fails with "Resource busy"; one retry clears it.
+      - name: Build app (retry)
+        if: steps.build.outcome == 'failure' && runner.os == 'macOS'
+        shell: bash
+        run: npx tauri build --bundles ${{ matrix.bundles }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.app }}-macos
-          path: ${{ matrix.app }}/src-tauri/target/release/bundle/dmg/*.dmg
+          name: ${{ matrix.app }}-${{ runner.os }}
+          path: |
+            ${{ matrix.app }}/src-tauri/target/release/bundle/dmg/*.dmg
+            ${{ matrix.app }}/src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
 
   release:
@@ -73,5 +94,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.dmg
+          files: |
+            artifacts/*.dmg
+            artifacts/*.exe
           generate_release_notes: true
