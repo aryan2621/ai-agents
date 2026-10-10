@@ -94,7 +94,8 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          # Each artifact keeps its bundle/dmg or bundle/nsis folder, so match at any depth.
           files: |
-            artifacts/*.dmg
-            artifacts/*.exe
+            artifacts/**/*.dmg
+            artifacts/**/*.exe
           generate_release_notes: true
