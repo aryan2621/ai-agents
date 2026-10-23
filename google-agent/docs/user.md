@@ -32,8 +32,6 @@ memory runs well; you can change it later in **Settings → Models**.
 | Gemma 4 26B A4B | 14.3 GB | 32 GB | Large but fast |
 | Qwen3.8 27B | 16.5 GB | 32 GB | The most capable; slower |
 
-A model you already downloaded in GitHub Agent or Relay is reused.
-
 **2. Connect your own Google Cloud app** (free, about 5 minutes, once): follow the
 **[Google setup guide](google-setup.md)**, then paste the Client ID and Client Secret into the app.
 

@@ -43,7 +43,7 @@ port is taken.
    cd backend && pip install -r requirements.txt
    ```
 4. On first launch, download a model in the onboarding step (or Settings → Models). It runs on this Mac;
-   nothing else to install. A model already downloaded by GitHub Agent or Relay is reused. Chats, settings
+   nothing else to install. Chats, settings
    and models live in `~/Library/Application Support/Google Agent/` (override with `GOOGLE_AGENT_DATA_DIR`).
 
 ## Run

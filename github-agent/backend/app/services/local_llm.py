@@ -40,7 +40,6 @@ class Model:
 
 
 # Open models the bundled llama.cpp runs with native tool calling, 4-bit, from Unsloth's GGUFs.
-# Same list and file names as Relay, so a model downloaded there is reused here.
 CATALOG: tuple[Model, ...] = (
     Model("qwen3.5-4b", "Qwen3.5 4B", "unsloth/Qwen3.5-4B-GGUF", "Qwen3.5-4B-Q4_K_M.gguf",
           2740, 8, "Small and quick. Handles simple, single tool calls on any Mac."),
@@ -86,20 +85,10 @@ def models_dir() -> Path:
     return path
 
 
-def _shared_paths(model_id: str) -> list[Path]:
-    """Copies other apps on this Mac already downloaded (Relay uses the same file names)."""
-    if sys.platform != "darwin":
-        return []
-    support = Path.home() / "Library" / "Application Support"
-    return [support / "com.relay.mcp-workbench" / "models" / f"{model_id}.gguf"]
-
-
 def model_path(model_id: str) -> Path | None:
     """The installed file for this model, or None."""
     own = models_dir() / f"{model_id}.gguf"
-    if own.is_file():
-        return own
-    return next((p for p in _shared_paths(model_id) if p.is_file()), None)
+    return own if own.is_file() else None
 
 
 def installed() -> list[str]:
